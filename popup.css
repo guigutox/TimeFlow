@@ -1,0 +1,160 @@
+:root {
+  --bg-top: #ffffff;
+  --bg-bottom: #f4eefe;
+  --card: #ffffff;
+  --text: #2d1a45;
+  --muted: #5f4385;
+  --accent: #ff6009;
+  --accent-strong: #d84f00;
+  --soft: #efe6fa;
+  --danger: #682ca3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  width: 360px;
+  min-height: 420px;
+  font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 10% 10%, #ffd5b8 0%, transparent 36%),
+    radial-gradient(circle at 95% 0%, #dbc3f4 0%, transparent 42%),
+    linear-gradient(165deg, var(--bg-top), var(--bg-bottom));
+}
+
+.app {
+  padding: 14px;
+}
+
+.hero {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid #e5d7f7;
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+  backdrop-filter: blur(2px);
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0.4px;
+}
+
+.hero p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.create-area {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+input {
+  width: 100%;
+  border: 1px solid #d6c4ee;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+  color: var(--text);
+}
+
+input:focus {
+  border-color: #682ca3;
+  box-shadow: 0 0 0 3px #e8daf8;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 10px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(160deg, var(--accent), var(--accent-strong));
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+
+button:hover {
+  filter: brightness(1.03);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+.timers-wrap h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+#timers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.timer {
+  border: 1px solid #e1d1f4;
+  border-radius: 12px;
+  background: var(--card);
+  padding: 10px;
+  box-shadow: 0 6px 14px rgba(104, 44, 163, 0.12);
+}
+
+.timer strong {
+  display: block;
+  font-size: 14px;
+}
+
+.timer p {
+  margin: 4px 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
+
+.controls {
+  display: flex;
+  gap: 6px;
+}
+
+.controls button {
+  flex: 1;
+}
+
+.controls .secondary {
+  color: #4b2d76;
+  background: var(--soft);
+}
+
+.controls .danger {
+  background: linear-gradient(160deg, var(--danger), #56258a);
+}
+
+.empty {
+  margin: 0;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px dashed #cdb7ea;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  color: var(--muted);
+}
