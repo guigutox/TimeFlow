@@ -1,4 +1,5 @@
 const searchInput = document.getElementById("search");
+const autoGroupCheckbox = document.getElementById("autoGroupTimers");
 let allTimers = [];
 
 function fetchTimers() {
@@ -8,8 +9,22 @@ function fetchTimers() {
   });
 }
 
+function fetchSettings() {
+  chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
+    const settings = response || {};
+    autoGroupCheckbox.checked = Boolean(settings.autoGroupTimersEnabled);
+  });
+}
+
 searchInput.addEventListener("input", () => {
   renderTimers(getFilteredTimers(allTimers));
+});
+
+autoGroupCheckbox.addEventListener("change", () => {
+  chrome.runtime.sendMessage({
+    type: "SET_AUTO_GROUP_TIMERS",
+    enabled: autoGroupCheckbox.checked
+  });
 });
 
 document.getElementById("create").addEventListener("click", () => {
@@ -125,4 +140,5 @@ function normalizeText(value) {
 }
 
 fetchTimers();
+fetchSettings();
 setInterval(fetchTimers, 1000);

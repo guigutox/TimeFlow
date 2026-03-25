@@ -3,7 +3,7 @@
   "name": "TimeFlow",
   "version": "1.0",
   "description": "Gerencie múltiplos cronômetros com persistência",
-  "permissions": ["storage"],
+  "permissions": ["storage", "tabs", "tabGroups"],
   "background": {
     "service_worker": "background.js"
   },
