@@ -21,8 +21,8 @@ body {
   font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at 10% 10%, #ffd5b8 0%, transparent 36%),
-    radial-gradient(circle at 95% 0%, #dbc3f4 0%, transparent 42%),
+    radial-gradient(circle at 10% 10%, #facfb0 0%, transparent 36%),
+    radial-gradient(circle at 95% 0%, #d3b1f8 0%, transparent 36%),
     linear-gradient(165deg, var(--bg-top), var(--bg-bottom));
 }
 
