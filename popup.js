@@ -4,7 +4,25 @@ const mainScreen = document.getElementById("mainScreen");
 const settingsScreen = document.getElementById("settingsScreen");
 const openSettingsButton = document.getElementById("openSettings");
 const backToMainButton = document.getElementById("backToMain");
+const toggleDisplayModeButton = document.getElementById("toggleDisplayMode");
 let allTimers = [];
+let displayMode = "clock";
+
+function updateDisplayModeButton() {
+  const decimalModeEnabled = displayMode === "decimal";
+  toggleDisplayModeButton.textContent = decimalModeEnabled ? "00:00" : "1,5h";
+  toggleDisplayModeButton.title = decimalModeEnabled
+    ? "Mostrar no formato de relogio"
+    : "Mostrar em horas decimais";
+  toggleDisplayModeButton.classList.toggle("active", decimalModeEnabled);
+}
+
+function toggleDisplayMode() {
+  displayMode = displayMode === "clock" ? "decimal" : "clock";
+  chrome.storage.local.set({ displayMode });
+  updateDisplayModeButton();
+  renderTimers(getFilteredTimers(allTimers));
+}
 
 function showSettingsScreen() {
   mainScreen.classList.add("hidden");
@@ -28,6 +46,14 @@ function fetchTimers() {
 }
 
 function fetchSettings() {
+  chrome.storage.local.get(["displayMode"], (storageData) => {
+    if (storageData.displayMode === "decimal") {
+      displayMode = "decimal";
+    }
+
+    updateDisplayModeButton();
+  });
+
   chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
     const settings = response || {};
     autoGroupCheckbox.checked = Boolean(settings.autoGroupTimersEnabled);
@@ -40,6 +66,7 @@ searchInput.addEventListener("input", () => {
 
 openSettingsButton.addEventListener("click", showSettingsScreen);
 backToMainButton.addEventListener("click", showMainScreen);
+toggleDisplayModeButton.addEventListener("click", toggleDisplayMode);
 
 autoGroupCheckbox.addEventListener("change", () => {
   chrome.runtime.sendMessage({
@@ -91,7 +118,7 @@ function renderTimers(timers) {
     title.textContent = timer.name;
 
     const timeText = document.createElement("p");
-    timeText.textContent = formatTime(time);
+    timeText.textContent = formatTimerValue(time);
 
     const controls = document.createElement("div");
     controls.className = "controls";
@@ -141,6 +168,22 @@ function formatTime(ms) {
   const seconds = totalSeconds % 60;
 
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function formatDecimalHours(ms) {
+  const hours = ms / (60 * 60 * 1000);
+  const truncatedHours = Math.floor(hours * 100) / 100;
+  const normalized = truncatedHours.toFixed(2);
+
+  return normalized.replace(".", ",");
+}
+
+function formatTimerValue(ms) {
+  if (displayMode === "decimal") {
+    return formatDecimalHours(ms);
+  }
+
+  return formatTime(ms);
 }
 
 function getFilteredTimers(timers) {
