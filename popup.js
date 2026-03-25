@@ -1,6 +1,24 @@
 const searchInput = document.getElementById("search");
 const autoGroupCheckbox = document.getElementById("autoGroupTimers");
+const mainScreen = document.getElementById("mainScreen");
+const settingsScreen = document.getElementById("settingsScreen");
+const openSettingsButton = document.getElementById("openSettings");
+const backToMainButton = document.getElementById("backToMain");
 let allTimers = [];
+
+function showSettingsScreen() {
+  mainScreen.classList.add("hidden");
+  mainScreen.classList.remove("active");
+  settingsScreen.classList.remove("hidden");
+  settingsScreen.classList.add("active");
+}
+
+function showMainScreen() {
+  settingsScreen.classList.add("hidden");
+  settingsScreen.classList.remove("active");
+  mainScreen.classList.remove("hidden");
+  mainScreen.classList.add("active");
+}
 
 function fetchTimers() {
   chrome.runtime.sendMessage({ type: "GET_TIMERS" }, (response) => {
@@ -19,6 +37,9 @@ function fetchSettings() {
 searchInput.addEventListener("input", () => {
   renderTimers(getFilteredTimers(allTimers));
 });
+
+openSettingsButton.addEventListener("click", showSettingsScreen);
+backToMainButton.addEventListener("click", showMainScreen);
 
 autoGroupCheckbox.addEventListener("change", () => {
   chrome.runtime.sendMessage({

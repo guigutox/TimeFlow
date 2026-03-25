@@ -30,6 +30,14 @@ body {
   padding: 14px;
 }
 
+.screen.hidden {
+  display: none;
+}
+
+.screen.active {
+  display: block;
+}
+
 .hero {
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid #e5d7f7;
@@ -37,6 +45,13 @@ body {
   padding: 12px;
   margin-bottom: 12px;
   backdrop-filter: blur(2px);
+}
+
+.hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .hero h1 {
@@ -49,6 +64,33 @@ body {
   margin: 4px 0 0;
   font-size: 12px;
   color: var(--muted);
+}
+
+.settings-button {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  color: #5e2b95;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #dcc9f3;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(104, 44, 163, 0.14);
+}
+
+.settings-button:hover {
+  background: #ffffff;
+  filter: none;
+}
+
+.settings-button:focus-visible {
+  outline: 2px solid #c39af0;
+  outline-offset: 1px;
 }
 
 .create-area {

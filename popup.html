@@ -7,30 +7,45 @@
 </head>
 <body>
   <main class="app">
-    <header class="hero">
-      <h1>TimeFlow</h1>
-      <p>Monitore o tempo que gastou em cada atividade</p>
-    </header>
+    <section id="mainScreen" class="screen active">
+      <header class="hero">
+        <div class="hero-top">
+          <h1>TimeFlow</h1>
+          <button id="openSettings" class="settings-button" type="button">⚙️</button>
+        </div>
+        <p>Monitore o tempo que gastou em cada atividade</p>
+      </header>
 
-    <section class="create-area">
-      <input type="text" id="name" placeholder="Nome do cronometro">
-      <button id="create">Criar</button>
+      <section class="create-area">
+        <input type="text" id="name" placeholder="Nome do cronometro">
+        <button id="create">Criar</button>
+      </section>
+
+      <section class="search-area">
+        <input type="text" id="search" placeholder="Buscar cronometro...">
+      </section>
+
+      <section class="timers-wrap">
+        <h2>Cronometros</h2>
+        <div id="timers"></div>
+      </section>
     </section>
 
-    <section class="auto-group-area">
-      <label for="autoGroupTimers" class="checkbox-label">
-        <input type="checkbox" id="autoGroupTimers">
-        Iniciar cronometro automaticamente ao criar grupo de abas
-      </label>
-    </section>
+    <section id="settingsScreen" class="screen hidden">
+      <header class="hero">
+        <div class="hero-top">
+          <h1>Configurações</h1>
+          <button id="backToMain" class="settings-button" type="button" aria-label="Voltar para tela principal" title="Início">🏠</button>
+        </div>
+        <p>Defina o comportamento automático dos cronometros</p>
+      </header>
 
-    <section class="search-area">
-      <input type="text" id="search" placeholder="Buscar cronometro...">
-    </section>
-
-    <section class="timers-wrap">
-      <h2>Cronometros</h2>
-      <div id="timers"></div>
+      <section class="auto-group-area">
+        <label for="autoGroupTimers" class="checkbox-label">
+          <input type="checkbox" id="autoGroupTimers">
+          Iniciar cronometro automaticamente ao criar grupo de abas
+        </label>
+      </section>
     </section>
   </main>
 
