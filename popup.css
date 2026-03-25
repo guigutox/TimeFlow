@@ -58,6 +58,10 @@ body {
   margin-bottom: 10px;
 }
 
+.search-area {
+  margin-bottom: 10px;
+}
+
 input {
   width: 100%;
   border: 1px solid #d6c4ee;

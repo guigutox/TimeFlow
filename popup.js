@@ -1,8 +1,16 @@
+const searchInput = document.getElementById("search");
+let allTimers = [];
+
 function fetchTimers() {
   chrome.runtime.sendMessage({ type: "GET_TIMERS" }, (response) => {
-    renderTimers(response || []);
+    allTimers = response || [];
+    renderTimers(getFilteredTimers(allTimers));
   });
 }
+
+searchInput.addEventListener("input", () => {
+  renderTimers(getFilteredTimers(allTimers));
+});
 
 document.getElementById("create").addEventListener("click", () => {
   const nameInput = document.getElementById("name");
@@ -28,7 +36,11 @@ function renderTimers(timers) {
   if (!timers.length) {
     const empty = document.createElement("p");
     empty.className = "empty";
-    empty.textContent = "Nenhum cronometro criado ainda.";
+    if (allTimers.length && searchInput.value.trim()) {
+      empty.textContent = "Nenhum cronometro encontrado para sua busca.";
+    } else {
+      empty.textContent = "Nenhum cronometro criado ainda.";
+    }
     container.appendChild(empty);
     return;
   }
@@ -93,6 +105,23 @@ function formatTime(ms) {
   const seconds = totalSeconds % 60;
 
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function getFilteredTimers(timers) {
+  const query = normalizeText(searchInput.value.trim());
+
+  if (!query) {
+    return timers;
+  }
+
+  return timers.filter((timer) => normalizeText(timer.name).includes(query));
+}
+
+function normalizeText(value) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 fetchTimers();
