@@ -100,14 +100,65 @@ function saveTimers() {
   chrome.storage.local.set({ timers });
 }
 
-chrome.tabGroups.onCreated.addListener((group) => {
-  if (!autoGroupTimersEnabled) {
-    return;
+function pauseTimer(timer) {
+  if (!timer.running || !timer.startTime) {
+    return timer;
   }
 
+  return {
+    ...timer,
+    elapsed: timer.elapsed + (Date.now() - timer.startTime),
+    startTime: null,
+    running: false
+  };
+}
+
+function resumeTimer(timer) {
+  if (timer.running) {
+    return timer;
+  }
+
+  return {
+    ...timer,
+    startTime: Date.now(),
+    running: true
+  };
+}
+
+function findAutoTimerByGroupId(groupId) {
+  return timers.findIndex(
+    (timer) => timer.autoManaged && timer.groupId === groupId
+  );
+}
+
+function findReusableAutoTimerByName(name) {
+  return timers.findIndex(
+    (timer) => timer.autoManaged && timer.groupId == null && timer.name === name
+  );
+}
+
+function createOrReuseAutoTimer(group) {
   const groupName = group.title && group.title.trim()
     ? group.title.trim()
-    : `Grupo ${group.id}`;
+    : null;
+
+  if (!groupName) {
+    return false;
+  }
+
+  const existingTimerIndex = findReusableAutoTimerByName(groupName);
+
+  if (existingTimerIndex !== -1) {
+    const updatedTimer = resumeTimer({
+      ...timers[existingTimerIndex],
+      groupId: group.id,
+      name: groupName
+    });
+
+    timers[existingTimerIndex] = updatedTimer;
+    saveTimers();
+    return true;
+  }
 
   const newTimer = {
     id: `${Date.now()}-${group.id}`,
@@ -121,32 +172,57 @@ chrome.tabGroups.onCreated.addListener((group) => {
 
   timers.push(newTimer);
   saveTimers();
+  return true;
+}
+
+chrome.tabGroups.onCreated.addListener((group) => {
+  if (!autoGroupTimersEnabled) {
+    return;
+  }
+
+  createOrReuseAutoTimer(group);
 });
 
-chrome.tabGroups.onUpdated.addListener((group) => {
-  const timerIndex = timers.findIndex(
-    (timer) => timer.autoManaged && timer.groupId === group.id
-  );
+chrome.tabGroups.onRemoved.addListener((group) => {
+  const timerIndex = findAutoTimerByGroupId(group.id);
 
   if (timerIndex === -1) {
     return;
   }
 
-  const timer = timers[timerIndex];
+  const updatedTimer = pauseTimer({
+    ...timers[timerIndex],
+    groupId: null
+  });
+
+  timers[timerIndex] = updatedTimer;
+  saveTimers();
+});
+
+chrome.tabGroups.onUpdated.addListener((group) => {
+  let timerIndex = findAutoTimerByGroupId(group.id);
+
+  if (timerIndex === -1 && autoGroupTimersEnabled) {
+    createOrReuseAutoTimer(group);
+    timerIndex = findAutoTimerByGroupId(group.id);
+  }
+
+  if (timerIndex === -1) {
+    return;
+  }
+
+  let timer = timers[timerIndex];
 
   if (group.title && group.title.trim()) {
     timer.name = group.title.trim();
   }
 
   if (group.collapsed && timer.running) {
-    timer.elapsed = timer.elapsed + (Date.now() - timer.startTime);
-    timer.startTime = null;
-    timer.running = false;
+    timer = pauseTimer(timer);
   }
 
   if (!group.collapsed && !timer.running) {
-    timer.startTime = Date.now();
-    timer.running = true;
+    timer = resumeTimer(timer);
   }
 
   timers[timerIndex] = timer;
