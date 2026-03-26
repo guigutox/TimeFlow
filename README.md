@@ -1,6 +1,6 @@
 # TimeFlow
 
-Extensão para acompanhar o tempo gasto em atividades, com criação de cronometros, busca, tema claro/escuro e backup dos dados.
+Extensão para acompanhar o tempo gasto em atividades, com criação de cronometros.
 
 ## Requisitos
 
