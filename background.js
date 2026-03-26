@@ -1,11 +1,13 @@
 let timers = [];
 let autoGroupTimersEnabled = false;
+let floatingButtonEnabled = false;
 const DUMP_VERSION = 1;
 
 // carregar timers ao iniciar
-chrome.storage.local.get(["timers", "autoGroupTimersEnabled"], (data) => {
+chrome.storage.local.get(["timers", "autoGroupTimersEnabled", "floatingButtonEnabled"], (data) => {
   timers = data.timers || [];
   autoGroupTimersEnabled = Boolean(data.autoGroupTimersEnabled);
+  floatingButtonEnabled = Boolean(data.floatingButtonEnabled);
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -15,13 +17,69 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "GET_SETTINGS") {
-    sendResponse({ autoGroupTimersEnabled });
+    sendResponse({ autoGroupTimersEnabled, floatingButtonEnabled });
   }
 
   if (msg.type === "SET_AUTO_GROUP_TIMERS") {
     autoGroupTimersEnabled = Boolean(msg.enabled);
     chrome.storage.local.set({ autoGroupTimersEnabled });
     sendResponse({ autoGroupTimersEnabled });
+  }
+
+  if (msg.type === "SET_FLOATING_BUTTON_ENABLED") {
+    floatingButtonEnabled = Boolean(msg.enabled);
+    chrome.storage.local.set({ floatingButtonEnabled });
+    sendResponse({ floatingButtonEnabled });
+  }
+
+  if (msg.type === "CREATE_GROUP_WITH_CURRENT_TAB") {
+    const tabId = sender && sender.tab ? sender.tab.id : null;
+    const fallbackTabUrl = sender && sender.tab ? sender.tab.url : "";
+
+    if (tabId == null) {
+      sendResponse({ ok: false, error: "Aba atual nao encontrada." });
+      return;
+    }
+
+    chrome.tabs.get(tabId, (tab) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+        return;
+      }
+
+      if (tab && typeof tab.groupId === "number" && tab.groupId >= 0) {
+        sendResponse({
+          ok: false,
+          alreadyGrouped: true,
+          error: "Esta aba ja esta em um grupo."
+        });
+        return;
+      }
+
+      const resolvedUrl = !chrome.runtime.lastError && tab && typeof tab.url === "string"
+        ? tab.url
+        : fallbackTabUrl;
+
+      chrome.tabs.group({ tabIds: [tabId] }, (groupId) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+
+        const groupTitle = getDomainLabelFromUrl(resolvedUrl);
+
+        chrome.tabGroups.update(groupId, { title: groupTitle }, () => {
+          if (chrome.runtime.lastError) {
+            sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+            return;
+          }
+
+          sendResponse({ ok: true, groupId, groupTitle });
+        });
+      });
+    });
+
+    return true;
   }
 
   if (msg.type === "CREATE_TIMER") {
@@ -258,6 +316,62 @@ function findAutoTimerByGroupId(groupId) {
   return timers.findIndex(
     (timer) => timer.autoManaged && timer.groupId === groupId
   );
+}
+
+function getDomainLabelFromUrl(url) {
+  if (typeof url !== "string" || !url.trim()) {
+    return "grupo";
+  }
+
+  try {
+    const ticketId = getTicketIdFromUrl(url);
+    if (ticketId) {
+      return ticketId;
+    }
+
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    const segments = hostname.split(".").filter(Boolean);
+
+    if (!segments.length) {
+      return "grupo";
+    }
+
+    if (segments.length === 1) {
+      return sanitizeLabel(segments[0]);
+    }
+
+    return sanitizeLabel(segments[0]);
+  } catch (error) {
+    return "grupo";
+  }
+}
+
+function getTicketIdFromUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const match = parsed.pathname.match(/\/tickets\/(\d+)(?:\/|$)/i);
+
+    if (!match || !match[1]) {
+      return "";
+    }
+
+    return match[1];
+  } catch (error) {
+    return "";
+  }
+}
+
+function sanitizeLabel(value) {
+  const cleaned = value
+    .replace(/[^a-z0-9-]/gi, "")
+    .trim();
+
+  if (!cleaned) {
+    return "grupo";
+  }
+
+  return cleaned.slice(0, 50);
 }
 
 function findReusableAutoTimerByName(name) {

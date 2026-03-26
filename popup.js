@@ -1,5 +1,6 @@
 const searchInput = document.getElementById("search");
 const autoGroupCheckbox = document.getElementById("autoGroupTimers");
+const floatingButtonCheckbox = document.getElementById("floatingButtonEnabled");
 const mainScreen = document.getElementById("mainScreen");
 const settingsScreen = document.getElementById("settingsScreen");
 const openSettingsButton = document.getElementById("openSettings");
@@ -121,6 +122,7 @@ function fetchSettings() {
   chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
     const settings = response || {};
     autoGroupCheckbox.checked = Boolean(settings.autoGroupTimersEnabled);
+    floatingButtonCheckbox.checked = Boolean(settings.floatingButtonEnabled);
   });
 }
 
@@ -138,6 +140,13 @@ autoGroupCheckbox.addEventListener("change", () => {
   chrome.runtime.sendMessage({
     type: "SET_AUTO_GROUP_TIMERS",
     enabled: autoGroupCheckbox.checked
+  });
+});
+
+floatingButtonCheckbox.addEventListener("change", () => {
+  chrome.runtime.sendMessage({
+    type: "SET_FLOATING_BUTTON_ENABLED",
+    enabled: floatingButtonCheckbox.checked
   });
 });
 
