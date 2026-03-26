@@ -1,5 +1,6 @@
 let timers = [];
 let autoGroupTimersEnabled = false;
+const DUMP_VERSION = 1;
 
 // carregar timers ao iniciar
 chrome.storage.local.get(["timers", "autoGroupTimersEnabled"], (data) => {
@@ -94,10 +95,138 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse(timers);
   }
 
+  if (msg.type === "EXPORT_TIMERS_DUMP") {
+    chrome.storage.local.get(["displayMode", "themeMode"], (storageData) => {
+      const dump = {
+        app: "TimeFlow",
+        version: DUMP_VERSION,
+        exportedAt: new Date().toISOString(),
+        timers: createTimersDump(),
+        settings: {
+          autoGroupTimersEnabled,
+          displayMode: storageData.displayMode === "decimal" ? "decimal" : "clock",
+          themeMode: storageData.themeMode === "dark" ? "dark" : "light"
+        }
+      };
+
+      sendResponse({ ok: true, dump });
+    });
+
+    return true;
+  }
+
+  if (msg.type === "IMPORT_TIMERS_DUMP") {
+    const result = importDump(msg.dump);
+
+    if (!result.ok) {
+      sendResponse(result);
+      return;
+    }
+
+    chrome.storage.local.set({
+      timers,
+      autoGroupTimersEnabled,
+      displayMode: result.displayMode,
+      themeMode: result.themeMode
+    }, () => {
+      sendResponse({
+        ok: true,
+        timersCount: timers.length,
+        autoGroupTimersEnabled,
+        displayMode: result.displayMode,
+        themeMode: result.themeMode
+      });
+    });
+
+    return true;
+  }
+
 });
 
 function saveTimers() {
   chrome.storage.local.set({ timers });
+}
+
+function createTimersDump() {
+  const now = Date.now();
+
+  return timers.map((timer) => {
+    const elapsed = getCurrentElapsed(timer, now);
+
+    return {
+      id: typeof timer.id === "string" ? timer.id : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: typeof timer.name === "string" ? timer.name : "Cronometro",
+      elapsed,
+      running: Boolean(timer.running),
+      autoManaged: Boolean(timer.autoManaged)
+    };
+  });
+}
+
+function getCurrentElapsed(timer, now) {
+  const baseElapsed = Number.isFinite(timer.elapsed) ? Math.max(0, timer.elapsed) : 0;
+
+  if (timer.running && Number.isFinite(timer.startTime)) {
+    return baseElapsed + Math.max(0, now - timer.startTime);
+  }
+
+  return baseElapsed;
+}
+
+function importDump(dump) {
+  if (!dump || typeof dump !== "object") {
+    return { ok: false, error: "Arquivo de backup invalido." };
+  }
+
+  if (!Array.isArray(dump.timers)) {
+    return { ok: false, error: "Backup sem lista de cronometros." };
+  }
+
+  const now = Date.now();
+  const importedTimers = dump.timers
+    .map((timer, index) => normalizeImportedTimer(timer, index, now))
+    .filter(Boolean);
+
+  if (!importedTimers.length && dump.timers.length) {
+    return { ok: false, error: "Nao foi possivel importar os cronometros desse backup." };
+  }
+
+  timers = importedTimers;
+
+  const settings = dump.settings && typeof dump.settings === "object" ? dump.settings : {};
+  autoGroupTimersEnabled = Boolean(settings.autoGroupTimersEnabled);
+
+  return {
+    ok: true,
+    displayMode: settings.displayMode === "decimal" ? "decimal" : "clock",
+    themeMode: settings.themeMode === "dark" ? "dark" : "light"
+  };
+}
+
+function normalizeImportedTimer(timer, index, now) {
+  if (!timer || typeof timer !== "object") {
+    return null;
+  }
+
+  const rawName = typeof timer.name === "string" ? timer.name.trim() : "";
+  if (!rawName) {
+    return null;
+  }
+
+  const elapsed = Number.isFinite(timer.elapsed) ? Math.max(0, timer.elapsed) : 0;
+  const running = Boolean(timer.running);
+
+  return {
+    id: typeof timer.id === "string" && timer.id.trim()
+      ? timer.id
+      : `${now}-${index}-${Math.random().toString(16).slice(2)}`,
+    name: rawName,
+    elapsed,
+    running,
+    startTime: running ? now : null,
+    autoManaged: Boolean(timer.autoManaged),
+    groupId: null
+  };
 }
 
 function pauseTimer(timer) {
