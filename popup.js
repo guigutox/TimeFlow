@@ -210,8 +210,34 @@ function renderTimers(timers) {
     const title = document.createElement("strong");
     title.textContent = timer.name;
 
+    const timeRow = document.createElement("div");
+    timeRow.className = "time-row";
+
     const timeText = document.createElement("p");
     timeText.textContent = formatTimerValue(time);
+
+    const copyTimeButton = document.createElement("button");
+    copyTimeButton.type = "button";
+    copyTimeButton.textContent = "Copiar";
+    copyTimeButton.className = "copy-time-button";
+    copyTimeButton.setAttribute("aria-label", `Copiar tempo de ${timer.name}`);
+    copyTimeButton.addEventListener("click", async () => {
+      const copied = await copyTextToClipboard(timeText.textContent);
+
+      if (!copied) {
+        alert("Nao foi possivel copiar o tempo para a area de transferencia.");
+        return;
+      }
+
+      const originalLabel = copyTimeButton.textContent;
+      copyTimeButton.textContent = "Copiado!";
+      copyTimeButton.disabled = true;
+
+      setTimeout(() => {
+        copyTimeButton.textContent = originalLabel;
+        copyTimeButton.disabled = false;
+      }, 1200);
+    });
 
     const controls = document.createElement("div");
     controls.className = "controls";
@@ -261,11 +287,44 @@ function renderTimers(timers) {
     controls.appendChild(deleteButton);
 
     div.appendChild(title);
-    div.appendChild(timeText);
+    timeRow.appendChild(timeText);
+    timeRow.appendChild(copyTimeButton);
+    div.appendChild(timeRow);
     div.appendChild(controls);
 
     container.appendChild(div);
   });
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (error) {
+      // Continua para o fallback quando a API de clipboard falhar.
+    }
+  }
+
+  const fallbackInput = document.createElement("textarea");
+  fallbackInput.value = text;
+  fallbackInput.setAttribute("readonly", "");
+  fallbackInput.style.position = "fixed";
+  fallbackInput.style.opacity = "0";
+  fallbackInput.style.pointerEvents = "none";
+  document.body.appendChild(fallbackInput);
+  fallbackInput.select();
+  fallbackInput.setSelectionRange(0, text.length);
+
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch (error) {
+    copied = false;
+  }
+
+  document.body.removeChild(fallbackInput);
+  return copied;
 }
 
 function calculateTime(timer) {
