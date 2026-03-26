@@ -5,6 +5,7 @@ const settingsScreen = document.getElementById("settingsScreen");
 const openSettingsButton = document.getElementById("openSettings");
 const backToMainButton = document.getElementById("backToMain");
 const toggleDisplayModeButton = document.getElementById("toggleDisplayMode");
+const toggleSortOrderButton = document.getElementById("toggleSortOrder");
 const toggleThemeButton = document.getElementById("toggleTheme");
 const themeModeLabel = document.getElementById("themeModeLabel");
 const themeIcon = document.getElementById("themeIcon");
@@ -13,6 +14,7 @@ const importDumpButton = document.getElementById("importDump");
 const importDumpInput = document.getElementById("importDumpInput");
 let allTimers = [];
 let displayMode = "clock";
+let sortOrder = "oldest";
 let themeMode = "light";
 
 function updateThemeButton() {
@@ -51,6 +53,22 @@ function toggleDisplayMode() {
   renderTimers(getFilteredTimers(allTimers));
 }
 
+function updateSortOrderButton() {
+  const newestFirst = sortOrder === "newest";
+  toggleSortOrderButton.textContent = newestFirst ? "Novos" : "Antigos";
+  toggleSortOrderButton.title = newestFirst
+    ? "Ordenar: mais novos primeiro"
+    : "Ordenar: mais antigos primeiro";
+  toggleSortOrderButton.classList.toggle("active", newestFirst);
+}
+
+function toggleSortOrder() {
+  sortOrder = sortOrder === "oldest" ? "newest" : "oldest";
+  chrome.storage.local.set({ sortOrder });
+  updateSortOrderButton();
+  renderTimers(getSortedTimers(getFilteredTimers(allTimers)));
+}
+
 function showSettingsScreen() {
   mainScreen.classList.add("hidden");
   mainScreen.classList.remove("active");
@@ -68,12 +86,12 @@ function showMainScreen() {
 function fetchTimers() {
   chrome.runtime.sendMessage({ type: "GET_TIMERS" }, (response) => {
     allTimers = response || [];
-    renderTimers(getFilteredTimers(allTimers));
+    renderTimers(getSortedTimers(getFilteredTimers(allTimers)));
   });
 }
 
 function fetchSettings() {
-  chrome.storage.local.get(["displayMode", "themeMode"], (storageData) => {
+  chrome.storage.local.get(["displayMode", "themeMode", "sortOrder"], (storageData) => {
     if (storageData.displayMode === "decimal") {
       displayMode = "decimal";
     }
@@ -84,7 +102,14 @@ function fetchSettings() {
       applyTheme("light");
     }
 
+    if (storageData.sortOrder === "newest") {
+      sortOrder = "newest";
+    } else {
+      sortOrder = "oldest";
+    }
+
     updateDisplayModeButton();
+    updateSortOrderButton();
   });
 
   chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
@@ -94,12 +119,13 @@ function fetchSettings() {
 }
 
 searchInput.addEventListener("input", () => {
-  renderTimers(getFilteredTimers(allTimers));
+  renderTimers(getSortedTimers(getFilteredTimers(allTimers)));
 });
 
 openSettingsButton.addEventListener("click", showSettingsScreen);
 backToMainButton.addEventListener("click", showMainScreen);
 toggleDisplayModeButton.addEventListener("click", toggleDisplayMode);
+toggleSortOrderButton.addEventListener("click", toggleSortOrder);
 toggleThemeButton.addEventListener("click", toggleTheme);
 
 autoGroupCheckbox.addEventListener("change", () => {
@@ -232,6 +258,20 @@ function getFilteredTimers(timers) {
   }
 
   return timers.filter((timer) => normalizeText(timer.name).includes(query));
+}
+
+function getSortedTimers(timers) {
+  const sortedTimers = [...timers].sort((a, b) => {
+    const aCreatedAt = typeof a.id === "number" ? a.id : 0;
+    const bCreatedAt = typeof b.id === "number" ? b.id : 0;
+    return aCreatedAt - bCreatedAt;
+  });
+
+  if (sortOrder === "newest") {
+    sortedTimers.reverse();
+  }
+
+  return sortedTimers;
 }
 
 function normalizeText(value) {
