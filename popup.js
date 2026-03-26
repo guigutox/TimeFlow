@@ -5,8 +5,32 @@ const settingsScreen = document.getElementById("settingsScreen");
 const openSettingsButton = document.getElementById("openSettings");
 const backToMainButton = document.getElementById("backToMain");
 const toggleDisplayModeButton = document.getElementById("toggleDisplayMode");
+const toggleThemeButton = document.getElementById("toggleTheme");
+const themeModeLabel = document.getElementById("themeModeLabel");
+const themeIcon = document.getElementById("themeIcon");
 let allTimers = [];
 let displayMode = "clock";
+let themeMode = "light";
+
+function updateThemeButton() {
+  const darkModeEnabled = themeMode === "dark";
+  themeIcon.textContent = darkModeEnabled ? "☀️" : "🌙";
+  themeModeLabel.textContent = darkModeEnabled ? "Escuro" : "Claro";
+  toggleThemeButton.title = darkModeEnabled ? "Ativar modo claro" : "Ativar modo escuro";
+  toggleThemeButton.setAttribute("aria-label", darkModeEnabled ? "Alternar para tema claro" : "Alternar para tema escuro");
+}
+
+function applyTheme(theme) {
+  themeMode = theme === "dark" ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", themeMode);
+  updateThemeButton();
+}
+
+function toggleTheme() {
+  const nextTheme = themeMode === "dark" ? "light" : "dark";
+  applyTheme(nextTheme);
+  chrome.storage.local.set({ themeMode: nextTheme });
+}
 
 function updateDisplayModeButton() {
   const decimalModeEnabled = displayMode === "decimal";
@@ -46,9 +70,15 @@ function fetchTimers() {
 }
 
 function fetchSettings() {
-  chrome.storage.local.get(["displayMode"], (storageData) => {
+  chrome.storage.local.get(["displayMode", "themeMode"], (storageData) => {
     if (storageData.displayMode === "decimal") {
       displayMode = "decimal";
+    }
+
+    if (storageData.themeMode === "dark") {
+      applyTheme("dark");
+    } else {
+      applyTheme("light");
     }
 
     updateDisplayModeButton();
@@ -67,6 +97,7 @@ searchInput.addEventListener("input", () => {
 openSettingsButton.addEventListener("click", showSettingsScreen);
 backToMainButton.addEventListener("click", showMainScreen);
 toggleDisplayModeButton.addEventListener("click", toggleDisplayMode);
+toggleThemeButton.addEventListener("click", toggleTheme);
 
 autoGroupCheckbox.addEventListener("change", () => {
   chrome.runtime.sendMessage({
