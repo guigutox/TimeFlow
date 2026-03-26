@@ -4,6 +4,13 @@
   "version": "1.0",
   "description": "Gerencie múltiplos cronômetros com persistência",
   "permissions": ["storage", "tabs", "tabGroups"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "background": {
     "service_worker": "background.js"
   },
