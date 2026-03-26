@@ -42,6 +42,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 
     chrome.tabs.get(tabId, (tab) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+        return;
+      }
+
+      if (tab && typeof tab.groupId === "number" && tab.groupId >= 0) {
+        sendResponse({
+          ok: false,
+          alreadyGrouped: true,
+          error: "Esta aba ja esta em um grupo."
+        });
+        return;
+      }
+
       const resolvedUrl = !chrome.runtime.lastError && tab && typeof tab.url === "string"
         ? tab.url
         : fallbackTabUrl;

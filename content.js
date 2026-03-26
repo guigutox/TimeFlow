@@ -76,7 +76,7 @@ function mountButton(savedPosition) {
 	button.style.fontWeight = "700";
 	button.style.lineHeight = "1";
 	button.style.color = "#ffffff";
-	button.style.background = "linear-gradient(160deg, #ff6009, #d84f00)";
+	button.style.background = "#592a9e";
 	button.style.boxShadow = "0 10px 20px rgba(0, 0, 0, 0.25)";
 	button.style.cursor = "pointer";
 
@@ -209,10 +209,53 @@ function onButtonClick(event) {
 	}
 
 	chrome.runtime.sendMessage({ type: "CREATE_GROUP_WITH_CURRENT_TAB" }, (response) => {
-		if (chrome.runtime.lastError || !response || !response.ok) {
-			console.warn("TimeFlow: falha ao criar grupo da aba atual.");
+		if (chrome.runtime.lastError) {
+			showFloatingNotice("Nao foi possivel criar o grupo agora.");
+			return;
+		}
+
+		if (!response || !response.ok) {
+			if (response && response.alreadyGrouped) {
+				showFloatingNotice("Esta aba ja esta em um grupo de abas.");
+				return;
+			}
+
+			showFloatingNotice("Nao foi possivel criar o grupo agora.");
 		}
 	});
+}
+
+function showFloatingNotice(message) {
+	const existing = document.getElementById("timeflow-floating-notice");
+	if (existing) {
+		existing.remove();
+	}
+
+	const notice = document.createElement("div");
+	notice.id = "timeflow-floating-notice";
+	notice.textContent = message;
+	notice.style.position = "fixed";
+	notice.style.top = "20px";
+	notice.style.left = "50%";
+	notice.style.transform = "translateX(-50%)";
+	notice.style.zIndex = "2147483647";
+	notice.style.padding = "10px 12px";
+	notice.style.borderRadius = "10px";
+	notice.style.background = "rgba(25, 25, 25, 0.92)";
+	notice.style.color = "#ffffff";
+	notice.style.fontFamily = "Segoe UI, sans-serif";
+	notice.style.fontSize = "12px";
+	notice.style.fontWeight = "600";
+	notice.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.32)";
+	notice.style.maxWidth = "280px";
+	notice.style.lineHeight = "1.3";
+	document.documentElement.appendChild(notice);
+
+	setTimeout(() => {
+		if (notice.isConnected) {
+			notice.remove();
+		}
+	}, 2600);
 }
 
 function savePosition() {
