@@ -253,6 +253,21 @@ body {
   margin-bottom: 10px;
 }
 
+.backup-area {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.secondary-action {
+  color: var(--control-secondary-text);
+  background: var(--soft);
+}
+
+.hidden-file-input {
+  display: none;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;

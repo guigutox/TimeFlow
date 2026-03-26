@@ -8,6 +8,9 @@ const toggleDisplayModeButton = document.getElementById("toggleDisplayMode");
 const toggleThemeButton = document.getElementById("toggleTheme");
 const themeModeLabel = document.getElementById("themeModeLabel");
 const themeIcon = document.getElementById("themeIcon");
+const exportDumpButton = document.getElementById("exportDump");
+const importDumpButton = document.getElementById("importDump");
+const importDumpInput = document.getElementById("importDumpInput");
 let allTimers = [];
 let displayMode = "clock";
 let themeMode = "light";
@@ -105,6 +108,10 @@ autoGroupCheckbox.addEventListener("change", () => {
     enabled: autoGroupCheckbox.checked
   });
 });
+
+exportDumpButton.addEventListener("click", exportDump);
+importDumpButton.addEventListener("click", () => importDumpInput.click());
+importDumpInput.addEventListener("change", importDumpFromFile);
 
 document.getElementById("create").addEventListener("click", () => {
   const nameInput = document.getElementById("name");
@@ -232,6 +239,65 @@ function normalizeText(value) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+}
+
+function exportDump() {
+  chrome.runtime.sendMessage({ type: "EXPORT_TIMERS_DUMP" }, (response) => {
+    if (!response || !response.ok || !response.dump) {
+      alert("Nao foi possivel gerar o backup agora.");
+      return;
+    }
+
+    const backupName = `timeflow-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    const backupContent = JSON.stringify(response.dump, null, 2);
+    const backupBlob = new Blob([backupContent], { type: "application/json" });
+    const downloadUrl = URL.createObjectURL(backupBlob);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = backupName;
+    link.click();
+
+    URL.revokeObjectURL(downloadUrl);
+  });
+}
+
+function importDumpFromFile(event) {
+  const file = event.target.files && event.target.files[0];
+
+  if (!file) {
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    try {
+      const dump = JSON.parse(reader.result);
+
+      chrome.runtime.sendMessage({ type: "IMPORT_TIMERS_DUMP", dump }, (response) => {
+        if (!response || !response.ok) {
+          alert((response && response.error) || "Nao foi possivel importar o backup.");
+          return;
+        }
+
+        fetchSettings();
+        fetchTimers();
+        alert(`Backup importado com sucesso. ${response.timersCount} cronometro(s) restaurado(s).`);
+      });
+    } catch (error) {
+      alert("Arquivo JSON invalido.");
+    } finally {
+      importDumpInput.value = "";
+    }
+  };
+
+  reader.onerror = () => {
+    alert("Falha ao ler o arquivo selecionado.");
+    importDumpInput.value = "";
+  };
+
+  reader.readAsText(file);
 }
 
 fetchTimers();
