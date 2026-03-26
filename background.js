@@ -34,28 +34,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === "CREATE_GROUP_WITH_CURRENT_TAB") {
     const tabId = sender && sender.tab ? sender.tab.id : null;
-    const tabUrl = sender && sender.tab ? sender.tab.url : "";
+    const fallbackTabUrl = sender && sender.tab ? sender.tab.url : "";
 
     if (tabId == null) {
       sendResponse({ ok: false, error: "Aba atual nao encontrada." });
       return;
     }
 
-    chrome.tabs.group({ tabIds: [tabId] }, (groupId) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ ok: false, error: chrome.runtime.lastError.message });
-        return;
-      }
+    chrome.tabs.get(tabId, (tab) => {
+      const resolvedUrl = !chrome.runtime.lastError && tab && typeof tab.url === "string"
+        ? tab.url
+        : fallbackTabUrl;
 
-      const groupTitle = getDomainLabelFromUrl(tabUrl);
-
-      chrome.tabGroups.update(groupId, { title: groupTitle }, () => {
+      chrome.tabs.group({ tabIds: [tabId] }, (groupId) => {
         if (chrome.runtime.lastError) {
           sendResponse({ ok: false, error: chrome.runtime.lastError.message });
           return;
         }
 
-        sendResponse({ ok: true, groupId, groupTitle });
+        const groupTitle = getDomainLabelFromUrl(resolvedUrl);
+
+        chrome.tabGroups.update(groupId, { title: groupTitle }, () => {
+          if (chrome.runtime.lastError) {
+            sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+            return;
+          }
+
+          sendResponse({ ok: true, groupId, groupTitle });
+        });
       });
     });
 
