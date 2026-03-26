@@ -9,11 +9,11 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "cronometro-de-cozinha-16.png"
+    "default_icon": "icon.png"
   },
   "icons": {
-    "16": "cronometro-de-cozinha-16.png",
-    "48": "cronometro-de-cozinha-32.png",
-    "128": "cronometro-de-cozinha-128.png"
+    "16": "icon-16.png",
+    "48": "icon-32.png",
+    "128": "icon-128.png"
   }
 }
