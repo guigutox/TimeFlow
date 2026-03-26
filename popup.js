@@ -12,10 +12,16 @@ const themeIcon = document.getElementById("themeIcon");
 const exportDumpButton = document.getElementById("exportDump");
 const importDumpButton = document.getElementById("importDump");
 const importDumpInput = document.getElementById("importDumpInput");
+const confirmDialog = document.getElementById("confirmDialog");
+const confirmTitle = document.getElementById("confirmTitle");
+const confirmMessage = document.getElementById("confirmMessage");
+const confirmCancelButton = document.getElementById("confirmCancel");
+const confirmAcceptButton = document.getElementById("confirmAccept");
 let allTimers = [];
 let displayMode = "clock";
 let sortOrder = "oldest";
 let themeMode = "light";
+let pendingConfirmResolver = null;
 
 function updateThemeButton() {
   const darkModeEnabled = themeMode === "dark";
@@ -139,6 +145,20 @@ exportDumpButton.addEventListener("click", exportDump);
 importDumpButton.addEventListener("click", () => importDumpInput.click());
 importDumpInput.addEventListener("change", importDumpFromFile);
 
+confirmCancelButton.addEventListener("click", () => resolveConfirm(false));
+confirmAcceptButton.addEventListener("click", () => resolveConfirm(true));
+confirmDialog.addEventListener("click", (event) => {
+  if (event.target === confirmDialog) {
+    resolveConfirm(false);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !confirmDialog.classList.contains("hidden")) {
+    resolveConfirm(false);
+  }
+});
+
 document.getElementById("create").addEventListener("click", () => {
   const nameInput = document.getElementById("name");
   const name = nameInput.value.trim();
@@ -196,14 +216,34 @@ function renderTimers(timers) {
     const resetButton = document.createElement("button");
     resetButton.textContent = "Zerar";
     resetButton.className = "secondary";
-    resetButton.addEventListener("click", () => {
+    resetButton.addEventListener("click", async () => {
+      const shouldReset = await showConfirmDialog({
+        title: "Zerar cronometro",
+        message: `Tem certeza que deseja zerar \"${timer.name}\"?`,
+        kind: "default",
+        confirmText: "Zerar"
+      });
+      if (!shouldReset) {
+        return;
+      }
+
       chrome.runtime.sendMessage({ type: "RESET_TIMER", id: timer.id }, fetchTimers);
     });
 
     const deleteButton = document.createElement("button");
     deleteButton.textContent = "Excluir";
     deleteButton.className = "danger";
-    deleteButton.addEventListener("click", () => {
+    deleteButton.addEventListener("click", async () => {
+      const shouldDelete = await showConfirmDialog({
+        title: "Excluir cronometro",
+        message: `Voce realmente deseja excluir "${timer.name}"? Esta acao nao pode ser desfeita.`,
+        kind: "danger",
+        confirmText: "Excluir"
+      });
+      if (!shouldDelete) {
+        return;
+      }
+
       chrome.runtime.sendMessage({ type: "DELETE_TIMER", id: timer.id }, fetchTimers);
     });
 
@@ -279,6 +319,36 @@ function normalizeText(value) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+}
+
+function showConfirmDialog({ title, message, kind, confirmText }) {
+  if (pendingConfirmResolver) {
+    pendingConfirmResolver(false);
+    pendingConfirmResolver = null;
+  }
+
+  confirmTitle.textContent = title || "Confirmar acao";
+  confirmMessage.textContent = message || "Tem certeza?";
+  confirmAcceptButton.textContent = confirmText || "Confirmar";
+  confirmDialog.classList.toggle("danger", kind === "danger");
+  confirmDialog.classList.remove("hidden");
+  confirmCancelButton.focus();
+
+  return new Promise((resolve) => {
+    pendingConfirmResolver = resolve;
+  });
+}
+
+function resolveConfirm(accepted) {
+  if (!pendingConfirmResolver) {
+    return;
+  }
+
+  const resolver = pendingConfirmResolver;
+  pendingConfirmResolver = null;
+  confirmDialog.classList.add("hidden");
+  confirmDialog.classList.remove("danger");
+  resolver(Boolean(accepted));
 }
 
 function exportDump() {

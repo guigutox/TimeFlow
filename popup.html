@@ -73,6 +73,17 @@
     </section>
   </main>
 
+  <div id="confirmDialog" class="dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+    <div class="dialog-card">
+      <h3 id="confirmTitle">Confirmar ação</h3>
+      <p id="confirmMessage">Tem certeza?</p>
+      <div class="dialog-actions">
+        <button id="confirmCancel" class="dialog-cancel" type="button">Cancelar</button>
+        <button id="confirmAccept" class="dialog-accept" type="button">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>
