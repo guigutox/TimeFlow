@@ -84,6 +84,12 @@ body {
   display: block;
 }
 
+#settingsScreen.active {
+  min-height: calc(420px - 28px);
+  display: flex;
+  flex-direction: column;
+}
+
 .hero {
   background: var(--hero-bg);
   border: 1px solid var(--hero-border);
@@ -257,6 +263,15 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.settings-credit {
+  margin: auto 0 2px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0.78;
+  letter-spacing: 0.2px;
 }
 
 .secondary-action {
