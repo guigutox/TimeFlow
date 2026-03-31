@@ -3,8 +3,11 @@ const autoGroupCheckbox = document.getElementById("autoGroupTimers");
 const floatingButtonCheckbox = document.getElementById("floatingButtonEnabled");
 const mainScreen = document.getElementById("mainScreen");
 const settingsScreen = document.getElementById("settingsScreen");
+const shortcutsScreen = document.getElementById("shortcutsScreen");
 const openSettingsButton = document.getElementById("openSettings");
 const backToMainButton = document.getElementById("backToMain");
+const openShortcutsButton = document.getElementById("openShortcuts");
+const backToSettingsButton = document.getElementById("backToSettings");
 const toggleDisplayModeButton = document.getElementById("toggleDisplayMode");
 const toggleSortOrderButton = document.getElementById("toggleSortOrder");
 const toggleThemeButton = document.getElementById("toggleTheme");
@@ -15,20 +18,27 @@ const importDumpButton = document.getElementById("importDump");
 const importDumpInput = document.getElementById("importDumpInput");
 const shortcutKeyInput = document.getElementById("shortcutKey");
 const shortcutValueInput = document.getElementById("shortcutValue");
+const shortcutFormTitle = document.getElementById("shortcutFormTitle");
 const addShortcutButton = document.getElementById("addShortcut");
+const cancelShortcutEditButton = document.getElementById("cancelShortcutEdit");
 const shortcutsList = document.getElementById("shortcutsList");
+const exportShortcutsButton = document.getElementById("exportShortcuts");
+const importShortcutsButton = document.getElementById("importShortcuts");
+const importShortcutsInput = document.getElementById("importShortcutsInput");
 const confirmDialog = document.getElementById("confirmDialog");
 const confirmTitle = document.getElementById("confirmTitle");
 const confirmMessage = document.getElementById("confirmMessage");
 const confirmCancelButton = document.getElementById("confirmCancel");
 const confirmAcceptButton = document.getElementById("confirmAccept");
 const STORAGE_KEY_SHORTCUTS = "textShortcuts";
+const SHORTCUTS_DUMP_VERSION = 1;
 let allTimers = [];
 let displayMode = "clock";
 let sortOrder = "oldest";
 let themeMode = "light";
 let pendingConfirmResolver = null;
 let textShortcuts = [];
+let editingShortcutKey = null;
 
 function updateThemeButton() {
   const darkModeEnabled = themeMode === "dark";
@@ -85,15 +95,29 @@ function toggleSortOrder() {
 function showSettingsScreen() {
   mainScreen.classList.add("hidden");
   mainScreen.classList.remove("active");
+  shortcutsScreen.classList.add("hidden");
+  shortcutsScreen.classList.remove("active");
   settingsScreen.classList.remove("hidden");
   settingsScreen.classList.add("active");
 }
 
 function showMainScreen() {
+  shortcutsScreen.classList.add("hidden");
+  shortcutsScreen.classList.remove("active");
   settingsScreen.classList.add("hidden");
   settingsScreen.classList.remove("active");
   mainScreen.classList.remove("hidden");
   mainScreen.classList.add("active");
+}
+
+function showShortcutsScreen() {
+  mainScreen.classList.add("hidden");
+  mainScreen.classList.remove("active");
+  settingsScreen.classList.add("hidden");
+  settingsScreen.classList.remove("active");
+  shortcutsScreen.classList.remove("hidden");
+  shortcutsScreen.classList.add("active");
+  shortcutKeyInput.focus();
 }
 
 function fetchTimers() {
@@ -138,6 +162,8 @@ searchInput.addEventListener("input", () => {
 
 openSettingsButton.addEventListener("click", showSettingsScreen);
 backToMainButton.addEventListener("click", showMainScreen);
+openShortcutsButton.addEventListener("click", showShortcutsScreen);
+backToSettingsButton.addEventListener("click", showSettingsScreen);
 toggleDisplayModeButton.addEventListener("click", toggleDisplayMode);
 toggleSortOrderButton.addEventListener("click", toggleSortOrder);
 toggleThemeButton.addEventListener("click", toggleTheme);
@@ -160,6 +186,10 @@ exportDumpButton.addEventListener("click", exportDump);
 importDumpButton.addEventListener("click", () => importDumpInput.click());
 importDumpInput.addEventListener("change", importDumpFromFile);
 addShortcutButton.addEventListener("click", onSaveShortcut);
+cancelShortcutEditButton.addEventListener("click", resetShortcutForm);
+exportShortcutsButton.addEventListener("click", exportShortcuts);
+importShortcutsButton.addEventListener("click", () => importShortcutsInput.click());
+importShortcutsInput.addEventListener("change", importShortcutsFromFile);
 shortcutKeyInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -507,6 +537,10 @@ function onSaveShortcut() {
     return;
   }
 
+  if (editingShortcutKey && editingShortcutKey !== key) {
+    textShortcuts = textShortcuts.filter((item) => item.key !== editingShortcutKey);
+  }
+
   const existingIndex = textShortcuts.findIndex((item) => item.key === key);
   if (existingIndex >= 0) {
     textShortcuts[existingIndex] = { key, value };
@@ -516,15 +550,43 @@ function onSaveShortcut() {
   }
 
   saveShortcuts(() => {
-    shortcutKeyInput.value = "";
-    shortcutValueInput.value = "";
-    shortcutKeyInput.focus();
+    resetShortcutForm();
   });
 }
 
 function onRemoveShortcut(key) {
   textShortcuts = textShortcuts.filter((item) => item.key !== key);
+
+  if (editingShortcutKey === key) {
+    resetShortcutForm();
+  }
+
   saveShortcuts();
+}
+
+function onEditShortcut(key) {
+  const shortcut = textShortcuts.find((item) => item.key === key);
+  if (!shortcut) {
+    return;
+  }
+
+  editingShortcutKey = shortcut.key;
+  shortcutKeyInput.value = shortcut.key;
+  shortcutValueInput.value = shortcut.value;
+  shortcutFormTitle.textContent = `Editando ${shortcut.key}`;
+  addShortcutButton.textContent = "Salvar edicao";
+  cancelShortcutEditButton.classList.remove("hidden-inline");
+  shortcutKeyInput.focus();
+}
+
+function resetShortcutForm() {
+  editingShortcutKey = null;
+  shortcutKeyInput.value = "";
+  shortcutValueInput.value = "";
+  shortcutFormTitle.textContent = "Novo atalho";
+  addShortcutButton.textContent = "Salvar atalho";
+  cancelShortcutEditButton.classList.add("hidden-inline");
+  shortcutKeyInput.focus();
 }
 
 function saveShortcuts(onDone) {
@@ -534,6 +596,104 @@ function saveShortcuts(onDone) {
       onDone();
     }
   });
+}
+
+function exportShortcuts() {
+  const dump = {
+    app: "TimeFlow",
+    type: "shortcuts",
+    version: SHORTCUTS_DUMP_VERSION,
+    exportedAt: new Date().toISOString(),
+    shortcuts: textShortcuts
+  };
+
+  const fileName = `timeflow-shortcuts-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  const content = JSON.stringify(dump, null, 2);
+  const blob = new Blob([content], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function importShortcutsFromFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) {
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = async () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const importedShortcuts = normalizeImportedShortcuts(parsed);
+
+      if (!importedShortcuts.length) {
+        alert("Nao foi encontrado nenhum atalho valido no arquivo.");
+        return;
+      }
+
+      const shouldReplace = await showConfirmDialog({
+        title: "Importar shortcuts",
+        message: `Substituir os atalhos atuais por ${importedShortcuts.length} atalho(s) importado(s)?`,
+        kind: "default",
+        confirmText: "Importar"
+      });
+
+      if (!shouldReplace) {
+        return;
+      }
+
+      textShortcuts = importedShortcuts;
+      saveShortcuts(() => {
+        resetShortcutForm();
+        alert(`Shortcuts importados com sucesso. ${importedShortcuts.length} atalho(s) ativo(s).`);
+      });
+    } catch (error) {
+      alert("Arquivo JSON invalido para importacao de shortcuts.");
+    } finally {
+      importShortcutsInput.value = "";
+    }
+  };
+
+  reader.onerror = () => {
+    alert("Falha ao ler o arquivo de shortcuts.");
+    importShortcutsInput.value = "";
+  };
+
+  reader.readAsText(file);
+}
+
+function normalizeImportedShortcuts(data) {
+  const sourceList = Array.isArray(data)
+    ? data
+    : (data && Array.isArray(data.shortcuts) ? data.shortcuts : []);
+
+  const merged = new Map();
+
+  sourceList.forEach((item) => {
+    if (!item || typeof item !== "object") {
+      return;
+    }
+
+    const key = normalizeShortcutKey(item.key);
+    const value = typeof item.value === "string" ? item.value.trim() : "";
+
+    if (!key || !value) {
+      return;
+    }
+
+    merged.set(key, value);
+  });
+
+  return Array.from(merged.entries())
+    .map(([key, value]) => ({ key, value }))
+    .sort((a, b) => a.key.localeCompare(b.key));
 }
 
 function fetchShortcuts() {
@@ -585,8 +745,19 @@ function renderShortcuts() {
     removeButton.textContent = "Excluir";
     removeButton.addEventListener("click", () => onRemoveShortcut(item.key));
 
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "shortcut-edit";
+    editButton.textContent = "Editar";
+    editButton.addEventListener("click", () => onEditShortcut(item.key));
+
+    const actions = document.createElement("div");
+    actions.className = "shortcut-actions";
+    actions.appendChild(editButton);
+    actions.appendChild(removeButton);
+
     shortcutCard.appendChild(textWrapper);
-    shortcutCard.appendChild(removeButton);
+    shortcutCard.appendChild(actions);
     shortcutsList.appendChild(shortcutCard);
   });
 }

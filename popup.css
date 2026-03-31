@@ -90,6 +90,12 @@ body {
   flex-direction: column;
 }
 
+#shortcutsScreen.active {
+  min-height: calc(420px - 28px);
+  display: flex;
+  flex-direction: column;
+}
+
 .hero {
   background: var(--hero-bg);
   border: 1px solid var(--hero-border);
@@ -263,6 +269,10 @@ body {
   margin-bottom: 10px;
 }
 
+.shortcuts-launch-area {
+  margin-bottom: 10px;
+}
+
 .shortcuts-area {
   margin-bottom: 10px;
   padding: 10px;
@@ -288,6 +298,12 @@ body {
 .shortcuts-form {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+
+.shortcuts-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
 
@@ -317,6 +333,13 @@ body {
   margin-top: 8px;
   max-height: 122px;
   overflow-y: auto;
+}
+
+.shortcuts-backup-area {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .shortcut-item {
@@ -352,6 +375,26 @@ body {
   padding: 0 8px;
   font-size: 11px;
   background: linear-gradient(160deg, var(--danger), #56258a);
+}
+
+.shortcut-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.shortcut-edit {
+  min-width: 58px;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--icon-text);
+  background: var(--icon-bg);
+  border: 1px solid var(--icon-border);
+  box-shadow: 0 2px 6px var(--icon-shadow);
+}
+
+.hidden-inline {
+  display: none;
 }
 
 .shortcut-empty {
