@@ -60,6 +60,10 @@
         </label>
       </section>
 
+      <section class="shortcuts-launch-area">
+        <button id="openShortcuts" class="secondary-action" type="button">Gerenciar shortcuts globais</button>
+      </section>
+
       <section class="theme-area">
         <button id="toggleTheme" class="theme-button" type="button" title="Ativar modo escuro" aria-label="Alternar tema">
           <span class="theme-main">Tema</span>
@@ -77,6 +81,35 @@
       </section>
 
       <p class="settings-credit">Created by Guilherme Fernandes</p>
+    </section>
+
+    <section id="shortcutsScreen" class="screen hidden">
+      <header class="hero">
+        <div class="hero-top">
+          <h1>Shortcuts</h1>
+          <button id="backToSettings" class="settings-button" type="button" aria-label="Voltar para configuracoes" title="Configurações">⚙️</button>
+        </div>
+        <p>Cadastre e edite atalhos de substituicao global</p>
+      </header>
+
+      <section class="shortcuts-area">
+        <h2 id="shortcutFormTitle">Novo atalho</h2>
+        <p class="shortcuts-help">Exemplo: ao digitar /inicio ele vira o texto salvo.</p>
+        <div class="shortcuts-form">
+          <input type="text" id="shortcutKey" placeholder="/inicio" maxlength="40">
+          <textarea id="shortcutValue" rows="3" placeholder="Texto que sera inserido"></textarea>
+          <div class="shortcuts-actions">
+            <button id="addShortcut" class="secondary-action" type="button">Salvar atalho</button>
+            <button id="cancelShortcutEdit" class="secondary-action hidden-inline" type="button">Cancelar edicao</button>
+          </div>
+        </div>
+        <div id="shortcutsList" class="shortcuts-list"></div>
+        <div class="shortcuts-backup-area">
+          <button id="exportShortcuts" class="secondary-action" type="button">Exportar shortcuts</button>
+          <button id="importShortcuts" class="secondary-action" type="button">Importar shortcuts</button>
+          <input type="file" id="importShortcutsInput" accept="application/json,.json" class="hidden-file-input">
+        </div>
+      </section>
     </section>
   </main>
 
