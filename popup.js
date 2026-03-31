@@ -13,16 +13,22 @@ const themeIcon = document.getElementById("themeIcon");
 const exportDumpButton = document.getElementById("exportDump");
 const importDumpButton = document.getElementById("importDump");
 const importDumpInput = document.getElementById("importDumpInput");
+const shortcutKeyInput = document.getElementById("shortcutKey");
+const shortcutValueInput = document.getElementById("shortcutValue");
+const addShortcutButton = document.getElementById("addShortcut");
+const shortcutsList = document.getElementById("shortcutsList");
 const confirmDialog = document.getElementById("confirmDialog");
 const confirmTitle = document.getElementById("confirmTitle");
 const confirmMessage = document.getElementById("confirmMessage");
 const confirmCancelButton = document.getElementById("confirmCancel");
 const confirmAcceptButton = document.getElementById("confirmAccept");
+const STORAGE_KEY_SHORTCUTS = "textShortcuts";
 let allTimers = [];
 let displayMode = "clock";
 let sortOrder = "oldest";
 let themeMode = "light";
 let pendingConfirmResolver = null;
+let textShortcuts = [];
 
 function updateThemeButton() {
   const darkModeEnabled = themeMode === "dark";
@@ -153,6 +159,13 @@ floatingButtonCheckbox.addEventListener("change", () => {
 exportDumpButton.addEventListener("click", exportDump);
 importDumpButton.addEventListener("click", () => importDumpInput.click());
 importDumpInput.addEventListener("change", importDumpFromFile);
+addShortcutButton.addEventListener("click", onSaveShortcut);
+shortcutKeyInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    onSaveShortcut();
+  }
+});
 
 confirmCancelButton.addEventListener("click", () => resolveConfirm(false));
 confirmAcceptButton.addEventListener("click", () => resolveConfirm(true));
@@ -478,6 +491,125 @@ function importDumpFromFile(event) {
   reader.readAsText(file);
 }
 
+function onSaveShortcut() {
+  const key = normalizeShortcutKey(shortcutKeyInput.value);
+  const value = shortcutValueInput.value.trim();
+
+  if (!key) {
+    alert("Informe um atalho valido. Exemplo: /inicio");
+    shortcutKeyInput.focus();
+    return;
+  }
+
+  if (!value) {
+    alert("Informe o texto que sera inserido para esse atalho.");
+    shortcutValueInput.focus();
+    return;
+  }
+
+  const existingIndex = textShortcuts.findIndex((item) => item.key === key);
+  if (existingIndex >= 0) {
+    textShortcuts[existingIndex] = { key, value };
+  } else {
+    textShortcuts.push({ key, value });
+    textShortcuts.sort((a, b) => a.key.localeCompare(b.key));
+  }
+
+  saveShortcuts(() => {
+    shortcutKeyInput.value = "";
+    shortcutValueInput.value = "";
+    shortcutKeyInput.focus();
+  });
+}
+
+function onRemoveShortcut(key) {
+  textShortcuts = textShortcuts.filter((item) => item.key !== key);
+  saveShortcuts();
+}
+
+function saveShortcuts(onDone) {
+  chrome.storage.local.set({ [STORAGE_KEY_SHORTCUTS]: textShortcuts }, () => {
+    renderShortcuts();
+    if (typeof onDone === "function") {
+      onDone();
+    }
+  });
+}
+
+function fetchShortcuts() {
+  chrome.storage.local.get([STORAGE_KEY_SHORTCUTS], (data) => {
+    const raw = data[STORAGE_KEY_SHORTCUTS];
+    textShortcuts = Array.isArray(raw)
+      ? raw
+          .filter((item) => item && typeof item.key === "string" && typeof item.value === "string")
+          .map((item) => ({
+            key: normalizeShortcutKey(item.key),
+            value: item.value
+          }))
+          .filter((item) => item.key && item.value)
+      : [];
+
+    textShortcuts.sort((a, b) => a.key.localeCompare(b.key));
+    renderShortcuts();
+  });
+}
+
+function renderShortcuts() {
+  shortcutsList.innerHTML = "";
+
+  if (!textShortcuts.length) {
+    const empty = document.createElement("p");
+    empty.className = "shortcut-empty";
+    empty.textContent = "Nenhum atalho criado ainda.";
+    shortcutsList.appendChild(empty);
+    return;
+  }
+
+  textShortcuts.forEach((item) => {
+    const shortcutCard = document.createElement("div");
+    shortcutCard.className = "shortcut-item";
+
+    const textWrapper = document.createElement("div");
+    const keyLabel = document.createElement("strong");
+    keyLabel.textContent = item.key;
+
+    const valueLabel = document.createElement("p");
+    valueLabel.textContent = item.value;
+
+    textWrapper.appendChild(keyLabel);
+    textWrapper.appendChild(valueLabel);
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "shortcut-remove";
+    removeButton.textContent = "Excluir";
+    removeButton.addEventListener("click", () => onRemoveShortcut(item.key));
+
+    shortcutCard.appendChild(textWrapper);
+    shortcutCard.appendChild(removeButton);
+    shortcutsList.appendChild(shortcutCard);
+  });
+}
+
+function normalizeShortcutKey(rawValue) {
+  if (typeof rawValue !== "string") {
+    return "";
+  }
+
+  const cleaned = rawValue.trim().toLowerCase();
+  if (!cleaned) {
+    return "";
+  }
+
+  const withSlash = cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
+  if (withSlash.length < 2 || /\s/.test(withSlash)) {
+    return "";
+  }
+
+  return withSlash;
+}
+
 fetchTimers();
 fetchSettings();
+fetchShortcuts();
 setInterval(fetchTimers, 1000);

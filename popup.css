@@ -263,6 +263,108 @@ body {
   margin-bottom: 10px;
 }
 
+.shortcuts-area {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid var(--checkbox-border);
+  border-radius: 10px;
+  background: var(--checkbox-bg);
+}
+
+.shortcuts-area h2 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+}
+
+.shortcuts-help {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.shortcuts-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shortcuts-form textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 72px;
+  border: 1px solid var(--field-border);
+  background: var(--field-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.shortcuts-form textarea:focus {
+  border-color: var(--field-focus);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
+}
+
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 122px;
+  overflow-y: auto;
+}
+
+.shortcut-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: start;
+  border: 1px solid var(--timer-border);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 8px;
+}
+
+.shortcut-item strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.shortcut-item p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.shortcut-remove {
+  min-width: 58px;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 11px;
+  background: linear-gradient(160deg, var(--danger), #56258a);
+}
+
+.shortcut-empty {
+  margin: 0;
+  border: 1px dashed var(--empty-border);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--empty-bg);
+}
+
 .backup-area {
   display: grid;
   grid-template-columns: 1fr 1fr;
