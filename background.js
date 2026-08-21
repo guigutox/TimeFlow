@@ -18,6 +18,10 @@ chrome.storage.local.get(["timers", "autoGroupTimersEnabled", "floatingButtonEna
     const tasks = pendingGroupTasks;
     pendingGroupTasks = [];
     tasks.forEach((task) => task());
+
+    // corrige um eventual estado travado (timer pausado por foco que
+    // deveria ter sido retomado) sempre que o service worker acorda
+    syncAutoTimersWithWindowFocus();
   });
 });
 
@@ -38,6 +42,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === "GET_TIMERS") {
     sendResponse(timers);
+    // aproveita a abertura do popup para corrigir um eventual timer
+    // travado pausado por foco (ex: evento de retomada de foco perdido)
+    runWhenTimersReady(scheduleFocusSync);
   }
 
   if (msg.type === "GET_SETTINGS") {
@@ -436,6 +443,7 @@ function createOrReuseAutoTimer(group) {
     const updatedTimer = resumeTimer({
       ...timers[existingTimerIndex],
       groupId: group.id,
+      windowId: group.windowId,
       name: groupName
     });
 
@@ -451,6 +459,7 @@ function createOrReuseAutoTimer(group) {
     elapsed: 0,
     running: true,
     groupId: group.id,
+    windowId: group.windowId,
     autoManaged: true
   };
 
@@ -476,7 +485,7 @@ function reconcileAutoTimers(callback) {
       return;
     }
 
-    const existingGroupIds = new Set((groups || []).map((group) => group.id));
+    const groupsById = new Map((groups || []).map((group) => [group.id, group]));
     let changed = false;
 
     timers = timers.map((timer) => {
@@ -484,12 +493,19 @@ function reconcileAutoTimers(callback) {
         return timer;
       }
 
-      if (existingGroupIds.has(timer.groupId)) {
-        return timer;
+      const liveGroup = groupsById.get(timer.groupId);
+
+      if (!liveGroup) {
+        changed = true;
+        return pauseTimer({ ...timer, groupId: null, windowId: null });
       }
 
-      changed = true;
-      return pauseTimer({ ...timer, groupId: null });
+      if (liveGroup.windowId !== timer.windowId) {
+        changed = true;
+        return { ...timer, windowId: liveGroup.windowId };
+      }
+
+      return timer;
     });
 
     if (changed) {
@@ -500,30 +516,10 @@ function reconcileAutoTimers(callback) {
   });
 }
 
-// pausa os cronometros automaticos (de grupo de abas) que estao rodando
-// quando o Chrome perde o foco (usuario troca de app/minimiza), para evitar
-// esquecer de pausar manualmente. Marca cada um com pausedByBlur para saber
-// depois que foi esta funcionalidade que pausou, e nao o usuario.
-function pauseTimersOnBlur() {
-  let changed = false;
-
-  timers = timers.map((timer) => {
-    if (!timer.autoManaged || !timer.running) {
-      return timer;
-    }
-
-    changed = true;
-    return { ...pauseTimer(timer), pausedByBlur: true };
-  });
-
-  if (changed) {
-    saveTimers();
-  }
-}
-
-// retoma somente os cronometros que foram pausados automaticamente pela
-// perda de foco, preservando os que o usuario pausou manualmente antes de
-// trocar de janela/app.
+// retoma incondicionalmente todos os cronometros que foram pausados
+// automaticamente pela perda de foco. Usado quando a funcionalidade e
+// desativada pelo usuario, ja que nesse caso nao faz sentido continuar
+// pausado esperando um foco que nao sera mais verificado.
 function resumeTimersPausedByBlur() {
   let changed = false;
 
@@ -541,19 +537,87 @@ function resumeTimersPausedByBlur() {
   }
 }
 
-chrome.windows.onFocusChanged.addListener((windowId) => {
-  runWhenTimersReady(() => {
-    if (!pauseOnWindowBlurEnabled) {
+// chrome.windows.onFocusChanged e o windowId recebido nao sao confiaveis:
+// o Chrome dispara WINDOW_ID_NONE de forma transitoria em interacoes
+// internas (ex: menus e bolhas da propria UI de grupos de abas) mesmo sem o
+// usuario ter saido do Chrome. Por isso, em vez de confiar no windowId do
+// evento, ele so serve de gatilho para consultar o estado real de foco das
+// janelas e sincronizar os timers com essa verdade.
+//
+// A verificacao e por janela: quando ha grupos em janelas diferentes do
+// Chrome, apenas o cronometro do grupo que esta na janela atualmente em
+// foco deve continuar rodando; os demais (em janelas sem foco) sao
+// pausados, mesmo que alguma outra janela do Chrome esteja em foco.
+let focusSyncTimeoutId = null;
+
+function syncAutoTimersWithWindowFocus() {
+  if (!pauseOnWindowBlurEnabled) {
+    return;
+  }
+
+  if (!chrome.windows || typeof chrome.windows.getAll !== "function") {
+    return;
+  }
+
+  chrome.windows.getAll({ windowTypes: ["normal", "popup"] }, (windows) => {
+    if (chrome.runtime.lastError) {
       return;
     }
 
-    if (windowId === chrome.windows.WINDOW_ID_NONE) {
-      pauseTimersOnBlur();
-      return;
-    }
+    const focusedWindowIds = new Set(
+      (windows || []).filter((win) => win.focused).map((win) => win.id)
+    );
+    const anyWindowFocused = focusedWindowIds.size > 0;
+    let changed = false;
 
-    resumeTimersPausedByBlur();
+    timers = timers.map((timer) => {
+      if (!timer.autoManaged) {
+        return timer;
+      }
+
+      // timers antigos sem windowId (criados antes desta funcionalidade)
+      // caem no comportamento anterior: qualquer janela do Chrome em foco
+      // conta como foco
+      const isTimerWindowFocused = timer.windowId != null
+        ? focusedWindowIds.has(timer.windowId)
+        : anyWindowFocused;
+
+      if (isTimerWindowFocused) {
+        if (!timer.pausedByBlur) {
+          return timer;
+        }
+
+        changed = true;
+        return { ...resumeTimer(timer), pausedByBlur: false };
+      }
+
+      if (!timer.running) {
+        return timer;
+      }
+
+      changed = true;
+      return { ...pauseTimer(timer), pausedByBlur: true };
+    });
+
+    if (changed) {
+      saveTimers();
+    }
   });
+}
+
+function scheduleFocusSync() {
+  if (focusSyncTimeoutId !== null) {
+    clearTimeout(focusSyncTimeoutId);
+  }
+
+  focusSyncTimeoutId = setTimeout(() => {
+    focusSyncTimeoutId = null;
+    syncAutoTimersWithWindowFocus();
+  }, 300);
+}
+
+chrome.windows.onFocusChanged.addListener(() => {
+  runWhenTimersReady(scheduleFocusSync);
 });
 
 chrome.tabGroups.onCreated.addListener((group) => {
@@ -576,7 +640,8 @@ chrome.tabGroups.onRemoved.addListener((group) => {
 
     const updatedTimer = pauseTimer({
       ...timers[timerIndex],
-      groupId: null
+      groupId: null,
+      windowId: null
     });
 
     timers[timerIndex] = updatedTimer;
@@ -601,6 +666,10 @@ chrome.tabGroups.onUpdated.addListener((group) => {
 
     if (group.title && group.title.trim()) {
       timer.name = group.title.trim();
+    }
+
+    if (typeof group.windowId === "number") {
+      timer.windowId = group.windowId;
     }
 
     if (group.collapsed && timer.running) {
