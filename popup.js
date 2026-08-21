@@ -34,6 +34,7 @@ const confirmAcceptButton = document.getElementById("confirmAccept");
 const STORAGE_KEY_SHORTCUTS = "textShortcuts";
 const SHORTCUTS_DUMP_VERSION = 1;
 let allTimers = [];
+let expandedTimerIds = new Set();
 let displayMode = "clock";
 let sortOrder = "oldest";
 let themeMode = "light";
@@ -338,14 +339,119 @@ function renderTimers(timers) {
     controls.appendChild(resetButton);
     controls.appendChild(deleteButton);
 
+    const isExpanded = expandedTimerIds.has(timer.id);
+
+    const dailyToggleButton = document.createElement("button");
+    dailyToggleButton.type = "button";
+    dailyToggleButton.className = "daily-toggle-button";
+    dailyToggleButton.textContent = isExpanded ? "Ocultar por dia ▲" : "Ver por dia ▾";
+    dailyToggleButton.setAttribute("aria-expanded", String(isExpanded));
+    dailyToggleButton.addEventListener("click", () => {
+      if (expandedTimerIds.has(timer.id)) {
+        expandedTimerIds.delete(timer.id);
+      } else {
+        expandedTimerIds.add(timer.id);
+      }
+
+      renderTimers(getSortedTimers(getFilteredTimers(allTimers)));
+    });
+
     div.appendChild(title);
     timeRow.appendChild(timeText);
     timeRow.appendChild(copyTimeButton);
     div.appendChild(timeRow);
     div.appendChild(controls);
+    div.appendChild(dailyToggleButton);
+
+    if (isExpanded) {
+      div.appendChild(buildDailyBreakdownPanel(timer));
+    }
 
     container.appendChild(div);
   });
+}
+
+function buildDailyBreakdownPanel(timer) {
+  const panel = document.createElement("div");
+  panel.className = "daily-breakdown";
+
+  const breakdown = getDailyBreakdown(timer);
+  const dateKeys = Object.keys(breakdown).sort((a, b) => b.localeCompare(a));
+
+  if (!dateKeys.length) {
+    const emptyRow = document.createElement("p");
+    emptyRow.className = "daily-breakdown-empty";
+    emptyRow.textContent = "Sem registros ainda.";
+    panel.appendChild(emptyRow);
+    return panel;
+  }
+
+  dateKeys.forEach((dateKey) => {
+    const row = document.createElement("div");
+    row.className = "daily-breakdown-row";
+
+    const label = document.createElement("span");
+    label.className = "daily-breakdown-label";
+    label.textContent = formatDayLabel(dateKey);
+
+    const value = document.createElement("span");
+    value.className = "daily-breakdown-value";
+    value.textContent = formatTimerValue(breakdown[dateKey]);
+
+    row.appendChild(label);
+    row.appendChild(value);
+    panel.appendChild(row);
+  });
+
+  return panel;
+}
+
+// registro diario do timer (historico salvo) somado ao trecho da sessao
+// atual ainda em andamento, distribuido pelos dias que ela atravessar
+function getDailyBreakdown(timer) {
+  const breakdown = { ...(timer.dailyLog || {}) };
+
+  if (timer.running && Number.isFinite(timer.startTime)) {
+    mergeDurationIntoBreakdown(breakdown, timer.startTime, Date.now());
+  }
+
+  return breakdown;
+}
+
+function mergeDurationIntoBreakdown(breakdown, startTime, endTime) {
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+    return;
+  }
+
+  let cursor = startTime;
+
+  while (cursor < endTime) {
+    const cursorDate = new Date(cursor);
+    const nextMidnight = new Date(
+      cursorDate.getFullYear(),
+      cursorDate.getMonth(),
+      cursorDate.getDate() + 1
+    ).getTime();
+    const segmentEnd = Math.min(endTime, nextMidnight);
+    const dateKey = getDateKey(cursor);
+
+    breakdown[dateKey] = (breakdown[dateKey] || 0) + (segmentEnd - cursor);
+    cursor = segmentEnd;
+  }
+}
+
+function getDateKey(timestamp) {
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatDayLabel(dateKey) {
+  const [, month, day] = dateKey.split("-");
+  return `${day}/${month}`;
 }
 
 async function copyTextToClipboard(text) {

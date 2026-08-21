@@ -130,6 +130,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       name: msg.name,
       startTime: Date.now(),
       elapsed: 0,
+      dailyLog: {},
       running: true
     };
 
@@ -144,20 +145,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return timer;
       }
 
-      if (timer.running) {
-        return {
-          ...timer,
-          elapsed: timer.elapsed + (Date.now() - timer.startTime),
-          startTime: null,
-          running: false
-        };
-      }
-
-      return {
-        ...timer,
-        startTime: Date.now(),
-        running: true
-      };
+      return timer.running ? pauseTimer(timer) : resumeTimer(timer);
     });
 
     saveTimers();
@@ -170,18 +158,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return timer;
       }
 
-      if (timer.running) {
-        return {
-          ...timer,
-          elapsed: 0,
-          startTime: Date.now()
-        };
-      }
-
       return {
         ...timer,
         elapsed: 0,
-        startTime: null
+        dailyLog: {},
+        startTime: timer.running ? Date.now() : null
       };
     });
 
@@ -257,6 +238,7 @@ function createTimersDump() {
       id: typeof timer.id === "string" ? timer.id : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       name: typeof timer.name === "string" ? timer.name : "Cronometro",
       elapsed,
+      dailyLog: getCurrentDailyLog(timer, now),
       running: Boolean(timer.running),
       autoManaged: Boolean(timer.autoManaged)
     };
@@ -271,6 +253,17 @@ function getCurrentElapsed(timer, now) {
   }
 
   return baseElapsed;
+}
+
+// retorna o registro diario (data -> ms) incluindo, se o timer estiver
+// rodando, o trecho ainda nao consolidado entre o inicio da sessao atual e
+// "now" (distribuido pelos dias que essa sessao atravessar)
+function getCurrentDailyLog(timer, now) {
+  if (timer.running && Number.isFinite(timer.startTime)) {
+    return addDurationToDailyLog(timer.dailyLog, timer.startTime, now);
+  }
+
+  return { ...(timer.dailyLog || {}) };
 }
 
 function importDump(dump) {
@@ -322,6 +315,7 @@ function normalizeImportedTimer(timer, index, now) {
       : `${now}-${index}-${Math.random().toString(16).slice(2)}`,
     name: rawName,
     elapsed,
+    dailyLog: sanitizeDailyLog(timer.dailyLog),
     running,
     startTime: running ? now : null,
     autoManaged: Boolean(timer.autoManaged),
@@ -329,14 +323,80 @@ function normalizeImportedTimer(timer, index, now) {
   };
 }
 
+// mantem apenas entradas com chave "YYYY-MM-DD" e valor numerico >= 0,
+// para nao herdar dados corrompidos de um backup editado manualmente
+function sanitizeDailyLog(rawDailyLog) {
+  if (!rawDailyLog || typeof rawDailyLog !== "object") {
+    return {};
+  }
+
+  const sanitized = {};
+
+  Object.keys(rawDailyLog).forEach((key) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+      return;
+    }
+
+    const value = rawDailyLog[key];
+
+    if (Number.isFinite(value) && value >= 0) {
+      sanitized[key] = value;
+    }
+  });
+
+  return sanitized;
+}
+
+// data local (YYYY-MM-DD) de um timestamp, usada como chave do registro
+// diario
+function getDateKey(timestamp) {
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+// distribui o intervalo [startTime, endTime) pelos dias locais que ele
+// atravessa, somando ao registro diario existente (sem mutar o original)
+function addDurationToDailyLog(dailyLog, startTime, endTime) {
+  const result = { ...(dailyLog || {}) };
+
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+    return result;
+  }
+
+  let cursor = startTime;
+
+  while (cursor < endTime) {
+    const cursorDate = new Date(cursor);
+    const nextMidnight = new Date(
+      cursorDate.getFullYear(),
+      cursorDate.getMonth(),
+      cursorDate.getDate() + 1
+    ).getTime();
+    const segmentEnd = Math.min(endTime, nextMidnight);
+    const dateKey = getDateKey(cursor);
+
+    result[dateKey] = (result[dateKey] || 0) + (segmentEnd - cursor);
+    cursor = segmentEnd;
+  }
+
+  return result;
+}
+
 function pauseTimer(timer) {
   if (!timer.running || !timer.startTime) {
     return timer;
   }
 
+  const now = Date.now();
+
   return {
     ...timer,
-    elapsed: timer.elapsed + (Date.now() - timer.startTime),
+    elapsed: timer.elapsed + (now - timer.startTime),
+    dailyLog: addDurationToDailyLog(timer.dailyLog, timer.startTime, now),
     startTime: null,
     running: false
   };
@@ -457,6 +517,7 @@ function createOrReuseAutoTimer(group) {
     name: groupName,
     startTime: Date.now(),
     elapsed: 0,
+    dailyLog: {},
     running: true,
     groupId: group.id,
     windowId: group.windowId,

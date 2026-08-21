@@ -624,6 +624,52 @@ button:active {
   background: linear-gradient(160deg, var(--danger), #56258a);
 }
 
+.daily-toggle-button {
+  width: 100%;
+  margin-top: 6px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11px;
+  color: var(--control-secondary-text);
+  background: var(--soft);
+  border: none;
+  border-radius: 8px;
+}
+
+.daily-breakdown {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--timer-border);
+  border-radius: 10px;
+  background: var(--soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.daily-breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.daily-breakdown-label {
+  color: var(--muted);
+}
+
+.daily-breakdown-value {
+  font-weight: 600;
+}
+
+.daily-breakdown-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
 .empty {
   margin: 0;
   background: var(--empty-bg);
