@@ -1,15 +1,17 @@
 let timers = [];
 let autoGroupTimersEnabled = false;
 let floatingButtonEnabled = false;
+let pauseOnWindowBlurEnabled = false;
 let timersReady = false;
 let pendingGroupTasks = [];
 const DUMP_VERSION = 1;
 
 // carregar timers ao iniciar
-chrome.storage.local.get(["timers", "autoGroupTimersEnabled", "floatingButtonEnabled"], (data) => {
+chrome.storage.local.get(["timers", "autoGroupTimersEnabled", "floatingButtonEnabled", "pauseOnWindowBlurEnabled"], (data) => {
   timers = data.timers || [];
   autoGroupTimersEnabled = Boolean(data.autoGroupTimersEnabled);
   floatingButtonEnabled = Boolean(data.floatingButtonEnabled);
+  pauseOnWindowBlurEnabled = Boolean(data.pauseOnWindowBlurEnabled);
 
   reconcileAutoTimers(() => {
     timersReady = true;
@@ -39,7 +41,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "GET_SETTINGS") {
-    sendResponse({ autoGroupTimersEnabled, floatingButtonEnabled });
+    sendResponse({ autoGroupTimersEnabled, floatingButtonEnabled, pauseOnWindowBlurEnabled });
   }
 
   if (msg.type === "SET_AUTO_GROUP_TIMERS") {
@@ -52,6 +54,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     floatingButtonEnabled = Boolean(msg.enabled);
     chrome.storage.local.set({ floatingButtonEnabled });
     sendResponse({ floatingButtonEnabled });
+  }
+
+  if (msg.type === "SET_PAUSE_ON_WINDOW_BLUR") {
+    pauseOnWindowBlurEnabled = Boolean(msg.enabled);
+    chrome.storage.local.set({ pauseOnWindowBlurEnabled });
+
+    if (!pauseOnWindowBlurEnabled) {
+      resumeTimersPausedByBlur();
+    }
+
+    sendResponse({ pauseOnWindowBlurEnabled });
   }
 
   if (msg.type === "CREATE_GROUP_WITH_CURRENT_TAB") {
@@ -486,6 +499,62 @@ function reconcileAutoTimers(callback) {
     if (callback) callback();
   });
 }
+
+// pausa os cronometros automaticos (de grupo de abas) que estao rodando
+// quando o Chrome perde o foco (usuario troca de app/minimiza), para evitar
+// esquecer de pausar manualmente. Marca cada um com pausedByBlur para saber
+// depois que foi esta funcionalidade que pausou, e nao o usuario.
+function pauseTimersOnBlur() {
+  let changed = false;
+
+  timers = timers.map((timer) => {
+    if (!timer.autoManaged || !timer.running) {
+      return timer;
+    }
+
+    changed = true;
+    return { ...pauseTimer(timer), pausedByBlur: true };
+  });
+
+  if (changed) {
+    saveTimers();
+  }
+}
+
+// retoma somente os cronometros que foram pausados automaticamente pela
+// perda de foco, preservando os que o usuario pausou manualmente antes de
+// trocar de janela/app.
+function resumeTimersPausedByBlur() {
+  let changed = false;
+
+  timers = timers.map((timer) => {
+    if (!timer.pausedByBlur) {
+      return timer;
+    }
+
+    changed = true;
+    return { ...resumeTimer(timer), pausedByBlur: false };
+  });
+
+  if (changed) {
+    saveTimers();
+  }
+}
+
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  runWhenTimersReady(() => {
+    if (!pauseOnWindowBlurEnabled) {
+      return;
+    }
+
+    if (windowId === chrome.windows.WINDOW_ID_NONE) {
+      pauseTimersOnBlur();
+      return;
+    }
+
+    resumeTimersPausedByBlur();
+  });
+});
 
 chrome.tabGroups.onCreated.addListener((group) => {
   runWhenTimersReady(() => {

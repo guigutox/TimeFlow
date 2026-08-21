@@ -1,6 +1,7 @@
 const searchInput = document.getElementById("search");
 const autoGroupCheckbox = document.getElementById("autoGroupTimers");
 const floatingButtonCheckbox = document.getElementById("floatingButtonEnabled");
+const pauseOnWindowBlurCheckbox = document.getElementById("pauseOnWindowBlur");
 const mainScreen = document.getElementById("mainScreen");
 const settingsScreen = document.getElementById("settingsScreen");
 const shortcutsScreen = document.getElementById("shortcutsScreen");
@@ -153,6 +154,7 @@ function fetchSettings() {
     const settings = response || {};
     autoGroupCheckbox.checked = Boolean(settings.autoGroupTimersEnabled);
     floatingButtonCheckbox.checked = Boolean(settings.floatingButtonEnabled);
+    pauseOnWindowBlurCheckbox.checked = Boolean(settings.pauseOnWindowBlurEnabled);
   });
 }
 
@@ -179,6 +181,13 @@ floatingButtonCheckbox.addEventListener("change", () => {
   chrome.runtime.sendMessage({
     type: "SET_FLOATING_BUTTON_ENABLED",
     enabled: floatingButtonCheckbox.checked
+  });
+});
+
+pauseOnWindowBlurCheckbox.addEventListener("change", () => {
+  chrome.runtime.sendMessage({
+    type: "SET_PAUSE_ON_WINDOW_BLUR",
+    enabled: pauseOnWindowBlurCheckbox.checked
   });
 });
 
