@@ -1,6 +1,8 @@
 let timers = [];
 let autoGroupTimersEnabled = false;
 let floatingButtonEnabled = false;
+let timersReady = false;
+let pendingGroupTasks = [];
 const DUMP_VERSION = 1;
 
 // carregar timers ao iniciar
@@ -8,7 +10,27 @@ chrome.storage.local.get(["timers", "autoGroupTimersEnabled", "floatingButtonEna
   timers = data.timers || [];
   autoGroupTimersEnabled = Boolean(data.autoGroupTimersEnabled);
   floatingButtonEnabled = Boolean(data.floatingButtonEnabled);
+
+  reconcileAutoTimers(() => {
+    timersReady = true;
+    const tasks = pendingGroupTasks;
+    pendingGroupTasks = [];
+    tasks.forEach((task) => task());
+  });
 });
+
+// evita que eventos de tabGroups sejam processados antes dos timers
+// serem carregados do storage, o que causaria cronometros duplicados
+// (ex: grupos restaurados ao reabrir o Chrome disparando onCreated/onUpdated
+// antes da reconciliacao terminar)
+function runWhenTimersReady(task) {
+  if (timersReady) {
+    task();
+    return;
+  }
+
+  pendingGroupTasks.push(task);
+}
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
@@ -389,6 +411,12 @@ function createOrReuseAutoTimer(group) {
     return false;
   }
 
+  // ja existe um timer monitorando exatamente esse grupo: nao criar outro
+  const exactTimerIndex = findAutoTimerByGroupId(group.id);
+  if (exactTimerIndex !== -1) {
+    return true;
+  }
+
   const existingTimerIndex = findReusableAutoTimerByName(groupName);
 
   if (existingTimerIndex !== -1) {
@@ -418,56 +446,103 @@ function createOrReuseAutoTimer(group) {
   return true;
 }
 
-chrome.tabGroups.onCreated.addListener((group) => {
-  if (!autoGroupTimersEnabled) {
+// verifica quais grupos de abas realmente existem e libera (groupId: null)
+// qualquer timer automatico que ainda aponte para um grupo que nao existe
+// mais (ex: apos reiniciar o Chrome os grupos restaurados recebem novos
+// ids). Sem isso, o timer antigo nunca e reencontrado por nome e um novo
+// cronometro e criado, duplicando o existente.
+function reconcileAutoTimers(callback) {
+  if (!chrome.tabGroups || typeof chrome.tabGroups.query !== "function") {
+    if (callback) callback();
     return;
   }
 
-  createOrReuseAutoTimer(group);
+  chrome.tabGroups.query({}, (groups) => {
+    if (chrome.runtime.lastError) {
+      if (callback) callback();
+      return;
+    }
+
+    const existingGroupIds = new Set((groups || []).map((group) => group.id));
+    let changed = false;
+
+    timers = timers.map((timer) => {
+      if (!timer.autoManaged || timer.groupId == null) {
+        return timer;
+      }
+
+      if (existingGroupIds.has(timer.groupId)) {
+        return timer;
+      }
+
+      changed = true;
+      return pauseTimer({ ...timer, groupId: null });
+    });
+
+    if (changed) {
+      saveTimers();
+    }
+
+    if (callback) callback();
+  });
+}
+
+chrome.tabGroups.onCreated.addListener((group) => {
+  runWhenTimersReady(() => {
+    if (!autoGroupTimersEnabled) {
+      return;
+    }
+
+    createOrReuseAutoTimer(group);
+  });
 });
 
 chrome.tabGroups.onRemoved.addListener((group) => {
-  const timerIndex = findAutoTimerByGroupId(group.id);
+  runWhenTimersReady(() => {
+    const timerIndex = findAutoTimerByGroupId(group.id);
 
-  if (timerIndex === -1) {
-    return;
-  }
+    if (timerIndex === -1) {
+      return;
+    }
 
-  const updatedTimer = pauseTimer({
-    ...timers[timerIndex],
-    groupId: null
+    const updatedTimer = pauseTimer({
+      ...timers[timerIndex],
+      groupId: null
+    });
+
+    timers[timerIndex] = updatedTimer;
+    saveTimers();
   });
-
-  timers[timerIndex] = updatedTimer;
-  saveTimers();
 });
 
 chrome.tabGroups.onUpdated.addListener((group) => {
-  let timerIndex = findAutoTimerByGroupId(group.id);
+  runWhenTimersReady(() => {
+    let timerIndex = findAutoTimerByGroupId(group.id);
 
-  if (timerIndex === -1 && autoGroupTimersEnabled) {
-    createOrReuseAutoTimer(group);
-    timerIndex = findAutoTimerByGroupId(group.id);
-  }
+    if (timerIndex === -1 && autoGroupTimersEnabled) {
+      createOrReuseAutoTimer(group);
+      timerIndex = findAutoTimerByGroupId(group.id);
+    }
 
-  if (timerIndex === -1) {
-    return;
-  }
+    if (timerIndex === -1) {
+      return;
+    }
 
-  let timer = timers[timerIndex];
+    let timer = timers[timerIndex];
 
-  if (group.title && group.title.trim()) {
-    timer.name = group.title.trim();
-  }
+    if (group.title && group.title.trim()) {
+      timer.name = group.title.trim();
+    }
 
-  if (group.collapsed && timer.running) {
-    timer = pauseTimer(timer);
-  }
+    if (group.collapsed && timer.running) {
+      timer = pauseTimer(timer);
+    }
 
-  if (!group.collapsed && !timer.running) {
-    timer = resumeTimer(timer);
-  }
+    if (!group.collapsed && !timer.running) {
+      timer = resumeTimer(timer);
+    }
 
-  timers[timerIndex] = timer;
-  saveTimers();
+    timers[timerIndex] = timer;
+    saveTimers();
+  });
 });
