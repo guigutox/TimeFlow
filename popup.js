@@ -32,9 +32,11 @@ const confirmMessage = document.getElementById("confirmMessage");
 const confirmCancelButton = document.getElementById("confirmCancel");
 const confirmAcceptButton = document.getElementById("confirmAccept");
 const STORAGE_KEY_SHORTCUTS = "textShortcuts";
+const STORAGE_KEY_PINNED_TIMER = "pinnedTimerId";
 const SHORTCUTS_DUMP_VERSION = 1;
 let allTimers = [];
 let expandedTimerIds = new Set();
+let pinnedTimerId = null;
 let displayMode = "clock";
 let sortOrder = "oldest";
 let themeMode = "light";
@@ -128,6 +130,28 @@ function fetchTimers() {
     renderTimers(getSortedTimers(getFilteredTimers(allTimers)));
   });
 }
+
+function fetchPinnedTimer() {
+  chrome.storage.local.get([STORAGE_KEY_PINNED_TIMER], (data) => {
+    pinnedTimerId = data[STORAGE_KEY_PINNED_TIMER] || null;
+    renderTimers(getSortedTimers(getFilteredTimers(allTimers)));
+  });
+}
+
+function setPinnedTimer(timerId) {
+  pinnedTimerId = timerId;
+  chrome.storage.local.set({ [STORAGE_KEY_PINNED_TIMER]: timerId });
+  renderTimers(getSortedTimers(getFilteredTimers(allTimers)));
+}
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local" || !changes[STORAGE_KEY_PINNED_TIMER]) {
+    return;
+  }
+
+  pinnedTimerId = changes[STORAGE_KEY_PINNED_TIMER].newValue || null;
+  renderTimers(getSortedTimers(getFilteredTimers(allTimers)));
+});
 
 function fetchSettings() {
   chrome.storage.local.get(["displayMode", "themeMode", "sortOrder"], (storageData) => {
@@ -295,6 +319,21 @@ function renderTimers(timers) {
     const controls = document.createElement("div");
     controls.className = "controls";
 
+    const isPinned = pinnedTimerId === timer.id;
+
+    const pinButton = document.createElement("button");
+    pinButton.type = "button";
+    pinButton.className = "pin-button";
+    pinButton.classList.toggle("active", isPinned);
+    pinButton.textContent = "📌";
+    pinButton.setAttribute("aria-pressed", String(isPinned));
+    pinButton.title = isPinned
+      ? "Desafixar cronometro da tela"
+      : "Fixar cronometro flutuando na tela enquanto navega";
+    pinButton.addEventListener("click", () => {
+      setPinnedTimer(isPinned ? null : timer.id);
+    });
+
     const toggleButton = document.createElement("button");
     toggleButton.textContent = timer.running ? "Pausar" : "Retomar";
     toggleButton.addEventListener("click", () => {
@@ -335,6 +374,7 @@ function renderTimers(timers) {
       chrome.runtime.sendMessage({ type: "DELETE_TIMER", id: timer.id }, fetchTimers);
     });
 
+    controls.appendChild(pinButton);
     controls.appendChild(toggleButton);
     controls.appendChild(resetButton);
     controls.appendChild(deleteButton);
@@ -898,4 +938,5 @@ function normalizeShortcutKey(rawValue) {
 fetchTimers();
 fetchSettings();
 fetchShortcuts();
+fetchPinnedTimer();
 setInterval(fetchTimers, 1000);

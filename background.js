@@ -173,6 +173,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "DELETE_TIMER") {
     timers = timers.filter((timer) => timer.id !== msg.id);
     saveTimers();
+    clearPinnedTimerIfMatches(msg.id);
     sendResponse(timers);
   }
 
@@ -210,6 +211,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       displayMode: result.displayMode,
       themeMode: result.themeMode
     }, () => {
+      chrome.storage.local.get(["pinnedTimerId"], (data) => {
+        if (data.pinnedTimerId && !timers.some((timer) => timer.id === data.pinnedTimerId)) {
+          chrome.storage.local.set({ pinnedTimerId: null });
+        }
+      });
+
       sendResponse({
         ok: true,
         timersCount: timers.length,
@@ -226,6 +233,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 function saveTimers() {
   chrome.storage.local.set({ timers });
+}
+
+// evita deixar o storage apontando para um cronometro fixado que acabou de
+// ser removido (exclusao manual ou substituicao via import de backup)
+function clearPinnedTimerIfMatches(timerId) {
+  chrome.storage.local.get(["pinnedTimerId"], (data) => {
+    if (data.pinnedTimerId === timerId) {
+      chrome.storage.local.set({ pinnedTimerId: null });
+    }
+  });
 }
 
 function createTimersDump() {

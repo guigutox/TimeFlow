@@ -624,6 +624,18 @@ button:active {
   background: linear-gradient(160deg, var(--danger), #56258a);
 }
 
+.controls .pin-button {
+  flex: 0 0 auto;
+  width: 34px;
+  padding: 9px 0;
+  color: var(--control-secondary-text);
+  background: var(--soft);
+}
+
+.controls .pin-button.active {
+  background: linear-gradient(160deg, #592a9e, #3d1c6e);
+}
+
 .daily-toggle-button {
   width: 100%;
   margin-top: 6px;

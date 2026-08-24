@@ -29,6 +29,7 @@ Extensão para acompanhar o tempo gasto em atividades, com criação de cronomet
 5. Em **Configuracoes**, ajuste tema, agrupamento automatico e backup.
 6. Ative **Exibir botao flutuante para agrupar a aba atual** para mostrar o botao na pagina.
 7. Arraste o botao para onde preferir e clique nele para criar um grupo contendo a aba atual.
+8. Clique no icone 📌 ao lado de um cronometro para fixa-lo em um balao flutuante, visivel em qualquer aba enquanto navega. O balao permite pausar/retomar o cronometro e pode ser arrastado; clique no × para desafixar.
 
 ## Atualizando a extensao apos alteracoes no codigo
 
