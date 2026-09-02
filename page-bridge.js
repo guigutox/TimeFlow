@@ -22,13 +22,23 @@
 		}
 
 		const target = event.target;
-		if (!(target instanceof HTMLElement) || target.tagName !== "TRIX-EDITOR") {
+		if (!(target instanceof HTMLElement)) {
 			return;
 		}
 
-		setTimeout(() => {
-			replaceInTrixEditor(target);
-		}, 0);
+		if (target.tagName === "TRIX-EDITOR") {
+			setTimeout(() => {
+				replaceInTrixEditor(target);
+			}, 0);
+			return;
+		}
+
+		const lexxyEditor = target.closest("lexxy-editor");
+		if (lexxyEditor) {
+			setTimeout(() => {
+				replaceInLexxyEditor(lexxyEditor);
+			}, 0);
+		}
 	}, true);
 
 	function buildShortcutMap(rawShortcuts) {
@@ -156,6 +166,65 @@
 
 		const replacement = shortcutMap.get(candidate.token);
 		editor.setSelectedRange([candidate.start, candidate.end]);
-		editor.insertString(replacement);
+		insertMultilineString(editor, replacement);
+	}
+
+	function insertMultilineString(editor, text) {
+		const lines = text.split("\n");
+
+		lines.forEach((line, index) => {
+			if (line) {
+				editor.insertString(line);
+			}
+
+			if (index < lines.length - 1) {
+				editor.insertLineBreak();
+			}
+		});
+	}
+
+	// Lexxy (https://github.com/basecamp/lexxy) is the Lexical-based editor that
+	// replaced Trix in newer Rails Action Text fields. Its <lexxy-editor> element
+	// exposes `.editor` (the Lexical editor instance) and `.contents`, whose
+	// `replaceTextBackUntil` is the same primitive Lexxy itself uses to swap a
+	// "@mention" trigger for a mention node - we reuse it to swap our "/shortcut"
+	// token for the expanded text.
+	function replaceInLexxyEditor(editorElement) {
+		if (!editorElement.editor || !editorElement.contents) {
+			return;
+		}
+
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
+			return;
+		}
+
+		const anchorNode = selection.anchorNode;
+		if (!anchorNode || anchorNode.nodeType !== Node.TEXT_NODE || !editorElement.contains(anchorNode)) {
+			return;
+		}
+
+		const textBeforeCaret = anchorNode.textContent.slice(0, selection.anchorOffset);
+		const candidate = getCandidateShortcut(textBeforeCaret);
+		if (!candidate) {
+			return;
+		}
+
+		if (!editorElement.contents.containsTextBackUntil(candidate.token)) {
+			return;
+		}
+
+		const replacement = shortcutMap.get(candidate.token);
+		const html = escapeHtml(replacement).split(/\r\n|\r|\n/).join("<br>");
+		const doc = new DOMParser().parseFromString(html, "text/html");
+
+		editorElement.editor.update(() => {
+			const nodes = editorElement.$generateNodesFromDOM(doc);
+			editorElement.contents.replaceTextBackUntil(candidate.token, nodes);
+		});
+	}
+
+	function escapeHtml(text) {
+		return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 	}
 })();

@@ -126,6 +126,14 @@
 			return;
 		}
 
+		if (typeof target.closest === "function" && target.closest("lexxy-editor")) {
+			// Lexxy (Lexical-based) editors are handled separately by page-bridge.js,
+			// which uses Lexxy's own node APIs. Mutating its contenteditable directly
+			// via execCommand here fights with Lexical's reconciliation and corrupts
+			// the content.
+			return;
+		}
+
 		if (isTextInput(target)) {
 			replaceShortcutInTextInput(target);
 			return;
