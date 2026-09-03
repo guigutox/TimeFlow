@@ -269,6 +269,14 @@ body {
   margin-bottom: 10px;
 }
 
+.pause-on-blur-area {
+  margin-bottom: 10px;
+}
+
+.auto-pin-area {
+  margin-bottom: 10px;
+}
+
 .shortcuts-launch-area {
   margin-bottom: 10px;
 }
@@ -622,6 +630,64 @@ button:active {
 
 .controls .danger {
   background: linear-gradient(160deg, var(--danger), #56258a);
+}
+
+.controls .pin-button {
+  flex: 0 0 auto;
+  width: 34px;
+  padding: 9px 0;
+  color: var(--control-secondary-text);
+  background: var(--soft);
+}
+
+.controls .pin-button.active {
+  background: linear-gradient(160deg, #592a9e, #3d1c6e);
+}
+
+.daily-toggle-button {
+  width: 100%;
+  margin-top: 6px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11px;
+  color: var(--control-secondary-text);
+  background: var(--soft);
+  border: none;
+  border-radius: 8px;
+}
+
+.daily-breakdown {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--timer-border);
+  border-radius: 10px;
+  background: var(--soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.daily-breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.daily-breakdown-label {
+  color: var(--muted);
+}
+
+.daily-breakdown-value {
+  font-weight: 600;
+}
+
+.daily-breakdown-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
 }
 
 .empty {
