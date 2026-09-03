@@ -2,16 +2,18 @@ let timers = [];
 let autoGroupTimersEnabled = false;
 let floatingButtonEnabled = false;
 let pauseOnWindowBlurEnabled = false;
+let autoPinNewTimerEnabled = false;
 let timersReady = false;
 let pendingGroupTasks = [];
 const DUMP_VERSION = 1;
 
 // carregar timers ao iniciar
-chrome.storage.local.get(["timers", "autoGroupTimersEnabled", "floatingButtonEnabled", "pauseOnWindowBlurEnabled"], (data) => {
+chrome.storage.local.get(["timers", "autoGroupTimersEnabled", "floatingButtonEnabled", "pauseOnWindowBlurEnabled", "autoPinNewTimerEnabled"], (data) => {
   timers = data.timers || [];
   autoGroupTimersEnabled = Boolean(data.autoGroupTimersEnabled);
   floatingButtonEnabled = Boolean(data.floatingButtonEnabled);
   pauseOnWindowBlurEnabled = Boolean(data.pauseOnWindowBlurEnabled);
+  autoPinNewTimerEnabled = Boolean(data.autoPinNewTimerEnabled);
 
   reconcileAutoTimers(() => {
     timersReady = true;
@@ -48,7 +50,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "GET_SETTINGS") {
-    sendResponse({ autoGroupTimersEnabled, floatingButtonEnabled, pauseOnWindowBlurEnabled });
+    sendResponse({ autoGroupTimersEnabled, floatingButtonEnabled, pauseOnWindowBlurEnabled, autoPinNewTimerEnabled });
   }
 
   if (msg.type === "SET_AUTO_GROUP_TIMERS") {
@@ -72,6 +74,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 
     sendResponse({ pauseOnWindowBlurEnabled });
+  }
+
+  if (msg.type === "SET_AUTO_PIN_NEW_TIMER") {
+    autoPinNewTimerEnabled = Boolean(msg.enabled);
+    chrome.storage.local.set({ autoPinNewTimerEnabled });
+    sendResponse({ autoPinNewTimerEnabled });
   }
 
   if (msg.type === "CREATE_GROUP_WITH_CURRENT_TAB") {
@@ -136,6 +144,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     timers.push(newTimer);
     saveTimers();
+    pinTimerIfAutoPinEnabled(newTimer.id);
     sendResponse(timers);
   }
 
@@ -543,7 +552,16 @@ function createOrReuseAutoTimer(group) {
 
   timers.push(newTimer);
   saveTimers();
+  pinTimerIfAutoPinEnabled(newTimer.id);
   return true;
+}
+
+function pinTimerIfAutoPinEnabled(timerId) {
+  if (!autoPinNewTimerEnabled) {
+    return;
+  }
+
+  chrome.storage.local.set({ pinnedTimerId: timerId });
 }
 
 // verifica quais grupos de abas realmente existem e libera (groupId: null)
